@@ -1,0 +1,11 @@
+*.aux
+*.bbl
+*.blg
+*.log
+*.lof
+*.lot
+*.out
+*.toc
+*.synctex.gz
+*.pdf
+.DS_Store
