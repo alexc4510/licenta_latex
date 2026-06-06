@@ -1,13 +1,30 @@
 \chapter{State of the Art}
 
-\section{Chapter Introduction}
+\section{Generative Models}
 
-% Present the theoretical background and relevant works from the literature.
+% GAN overview: Goodfellow et al. 2014 \cite{goodfellow2014}. Discriminator-generator adversarial training.
+% StyleGAN \cite{karras2019} — the generator used in Dataset C.
+% Diffusion models: DDPM \cite{ho2020}, Latent Diffusion / Stable Diffusion \cite{rombach2022}.
+% Key deployed systems: SD v1.5, SDXL, SD3, DALL-E 3, MidJourney.
+% The quality gap: why modern generators make detection hard.
 
-\section{Existing Technologies and Methods}
+\section{AI-Generated Image Detection}
 
-% Describe existing solutions and compare them.
+% Early methods: frequency domain analysis, steganalysis-inspired approaches.
+% CNN-based detectors: Wang et al. 2020 \cite{wang2020} — CNNSpot.
+%   Key finding: models trained on one generator fail on others.
+% Universal detectors: Ojha et al. 2023 \cite{ojha2023} — CLIP-based universal fake image detector.
+% Frequency domain approaches: spectral artefacts from GAN upsampling.
 
-\section{Summary}
+\section{Datasets for AI Image Detection}
 
-% Synthesize what is missing from the existing literature and how your work contributes.
+% Describe the landscape of public datasets.
+% Specifically describe our three datasets in this context.
+% Note the challenge of dataset diversity (different real image sources, different generators).
+
+\section{Cross-Dataset Generalisation}
+
+% Frame the generalisation problem formally.
+% Cite Wang 2020 and Ojha 2023 as the two most directly relevant prior works.
+% Explain what makes our study different: systematic multi-dataset progression,
+% two generation paradigms, per-generator analysis.

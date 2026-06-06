@@ -9,3 +9,4 @@
 *.synctex.gz
 *.pdf
 .DS_Store
+claude_context/

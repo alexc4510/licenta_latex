@@ -1,13 +1,23 @@
 \chapter{Conclusions}
 
-\section{Summary}
+\section{Summary of Findings}
 
-% Briefly synthesize what you accomplished in the thesis.
+% 1. Cross-dataset generalisation failure is systematic and near-complete for single-source models.
+% 2. Data diversity is the primary driver of robustness -- more than architecture choice.
+% 3. DoG preprocessing does not improve over raw RGB.
+% 4. Dataset B performance is limited by a compound cause, not a single factor.
 
 \section{Contributions}
 
-% List the original contributions of the work.
+% - Systematic quantification of cross-dataset failure across two generation paradigms
+% - Multi-stage training progression showing the path from failure to robust detection
+% - Per-generator breakdown methodology (metadata CSV filtering approach)
+% - dataset\_combined\_v2: a balanced 80k-image multi-paradigm training corpus
 
 \section{Future Work}
 
-% What improvements or extensions could be made in the future.
+% - Include MidJourney v6 in training and increase MS-COCO real proportion
+% - Train ResNet-101 on dataset\_combined\_v2 to assess effect of additional capacity
+% - Investigate ensemble/stacked models for improved cross-generator robustness
+% - Frequency domain input (FFT magnitude) as a third channel alongside RGB
+% - A fourth dataset based on DiT-generated images (different diffusion architecture)

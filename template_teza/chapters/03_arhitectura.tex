@@ -1,18 +1,72 @@
-\chapter{System Architecture}
+\chapter{Datasets and Methodology}
 
-\section{Overview}
+\section{Datasets}
 
-% Describe the general architecture of the proposed solution.
-% A block diagram is useful here.
+\subsection{Dataset A — AI vs. Human-Generated Images}
 
-\section{Main Components}
+% Source: Kaggle. ~80k images, balanced, 80/10/10 split.
+% Real: Shutterstock photographs.
+% AI: Stable Diffusion v1.5 (diffusion paradigm).
+% Preprocessing: stratified split, 224x224 center-crop.
 
-% Detail each major component of the system.
+\subsection{Dataset B — Defactify Image Dataset}
 
-\subsection{Component A}
+% Source: HuggingFace. 96k images, 1:5 class imbalance (real:AI).
+% Real: MS-COCO captions, natural photographs.
+% AI: SD2.1, SDXL, SD3, DALL-E3, MidJourney v6.
+% Each real image semantically paired with 5 AI counterparts from the same caption.
 
-\subsection{Component B}
+\subsection{Dataset C — 140k Real and Fake Faces}
 
-\section{Technologies Used}
+% Source: Kaggle. 140k images, balanced.
+% Real: FFHQ (Flickr-Faces-HQ) portrait faces.
+% AI: StyleGAN (GAN paradigm).
 
-% Justify the choice of technologies and tools.
+\section{Combined Datasets}
+
+% dataset\_combined (B+C, 28k): 50\% diffusion, 50\% GAN — Experiments 9--12.
+% dataset\_combined\_v2 (A+B+C, 80k): multi-source, multi-paradigm — Experiments 13--14.
+%   - MidJourney v6 excluded (rationale: paradigm overlap with Dataset A diffusion content)
+%   - Dataset B semantically paired construction
+%   - No real test split; evaluated on original test splits of A, B, C.
+
+\section{Model Architecture}
+
+% ResNet-18 (~11.7M params) and ResNet-50 (~25.6M params) \cite{he2016}.
+% Residual block, skip connections, identity shortcut.
+% Pretrained ImageNet weights: transfer learning rationale.
+% Modified final FC layer: 1000 classes -> 2 (ai=0, real=1).
+
+\section{Training Setup}
+
+\subsection{Standard Configuration (Experiments 1--12)}
+
+% Loss: CrossEntropyLoss with inverse-frequency class weights.
+% Optimiser: Adam, lr=1e-4. Batch size: 128.
+% Preprocessing: 224x224 pre-resized, ImageNet normalisation.
+% Augmentation: RandomHorizontalFlip only.
+% Evaluation metric: macro-averaged F1-score.
+
+\subsection{Advanced Configuration (Experiments 13--14)}
+
+% Loss: Focal Loss \cite{lin2017} (gamma=2.0, label\_smoothing=0.1).
+%   FL(p_t) = -(1-p_t)^gamma * log(p_t)
+%   Down-weights easy examples; label smoothing prevents overconfidence.
+% Extended augmentation: ColorJitter + RandomRotation(10deg) + RandomErasing(p=0.2).
+% LR warmup: linear over 2 epochs (0 -> 1e-4).
+% ReduceLROnPlateau: factor=0.5, patience=3.
+% Early stopping: patience=5 on val F1. Gradient clipping: max\_norm=1.0.
+
+\section{Evaluation Protocol}
+
+% Best checkpoint: val\_acc for Exp 1--12, val\_f1 for Exp 13--14.
+% Metrics: accuracy, macro precision/recall/F1, confusion matrix, per-class report.
+% Cross-dataset matrix: every (trained\_on, tested\_on) combination.
+% Per-generator evaluation: Dataset B test split filtered by label\_b metadata CSV.
+
+\section{Implementation}
+
+% Python, PyTorch 2.3.0, torchvision 0.18.0.
+% Google Colab T4 GPU, Google Drive for persistence.
+% Custom DataLoader with Drive-compatible os.listdir (not glob — Drive FUSE indexing issues).
+% Checkpoint system: saves val\_acc, val\_f1, early stopping state per epoch.

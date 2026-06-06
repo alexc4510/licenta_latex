@@ -1,13 +1,45 @@
-\chapter{Results and Evaluation}
+\chapter{Analysis and Discussion}
 
-\section{Testing Methodology}
+\section{The Dataset-Specific Shortcut Hypothesis}
 
-% Describe how you tested the system and what metrics you used.
+% Hypothesis: models learn statistical properties of each dataset, not universal artefacts.
+% Evidence: consistent failure regardless of architecture (ResNet-18 ~= ResNet-50 off-diagonal).
+% What these shortcuts might be: real image distribution (Shutterstock vs FFHQ vs MS-COCO),
+% compression artefacts, resolution patterns, colour statistics.
 
-\section{Results}
+\section{Why Dataset B is the Hardest Target}
 
-% Present the results with tables, graphs, and figures.
+% Three compounding factors:
+%   1. MidJourney v6 exclusion from training
+%   2. MS-COCO real images underrepresented (17.5\% of training real images)
+%   3. Test set imbalance amplifying real class precision collapse
+% Per-generator evidence: real recall is uniformly ~0.61 across all generators
+% -> real image distribution mismatch is the primary cause, not missing generator alone.
 
-\section{Discussion}
+\section{Effect of Data Diversity}
 
-% Analyze the results: what worked well, what limitations exist.
+% Progressive improvement across stages (chart or table: best OOD F1 per stage).
+% Key insight: combining datasets with different real image sources forces the model to
+% learn a more general representation of "real".
+% Architecture capacity advantage grows with data diversity.
+
+\section{DoG Preprocessing Failure}
+
+% Why expected to help: generative models often produce spectral artefacts.
+% Why it did not: the CNN already learns edge/frequency information from RGB;
+% DoG removes colour and low-frequency content that may actually be diagnostic.
+% Alternative: FFT magnitude as input channel — proposed for future work.
+
+\section{Adaptive Learning Rate Scheduling}
+
+% Quantify: LR reduction at epoch 12 -> F1 jump from 0.9910 to 0.9933 over two epochs.
+% Interpretation: model was overfitting at 1e-4; finer updates at 5e-5 allowed
+% convergence to a better minimum.
+
+\section{Limitations}
+
+% - MidJourney v6 exclusion
+% - MS-COCO real image underrepresentation
+% - No real test split for combined datasets
+% - Evaluation only on three specific datasets
+% - Training data from 2024 generators -- rapidly evolving landscape

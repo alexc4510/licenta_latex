@@ -1,17 +1,51 @@
-\chapter{Implementation}
+\chapter{Experiments and Results}
 
-\section{Development Environment}
+\section{Stage 1: Single-Source Training (Experiments 1--6)}
 
-% Describe the setup: OS, IDE, libraries, versions.
+% Present the 3x3 cross-dataset generalisation matrix (Figure: heatmap for both models).
+% In-distribution performance: A and C near-perfect (>0.99), B moderate (0.65).
+% Off-diagonal collapse: minimum 0.1436, several cells near 0.33 (random for binary).
+% Key observation: performance collapse is architecture-independent.
 
-\section{Implementation Details}
+% Table: single-source training results
+% \begin{table}[tb] ... \end{table}
 
-% Present the important technical decisions and how you implemented each component.
+% Figure: generalisation matrix heatmaps (ResNet-50 and ResNet-18)
 
-\subsection{Module A}
+\section{Stage 2: Balanced Dataset B (Experiments 7--8)}
 
-\subsection{Module B}
+% Motivation: 1:5 imbalance in Dataset B might explain poor performance.
+% Results: modest improvement (F1 from 0.65 to 0.67 on balanced test).
+% Conclusion: imbalance explains part of difficulty but not all.
 
-\section{Challenges Encountered}
+\section{Stage 3: Combined Datasets B+C (Experiments 9--12)}
 
-% Describe the technical problems encountered and how you solved them.
+\subsection{Raw RGB (Experiments 9--10)}
+
+% Key result: Dataset A OOD improvement (0.7361 vs 0.6738 best single-source).
+% GAN detection maintained (C ~= 0.99).
+
+\subsection{DoG Preprocessing (Experiments 11--12)}
+
+% Describe DoG: sigma\_weak=1.0, sigma\_strong=2.0, output normalised to [0,1].
+% Results: no consistent improvement over RGB.
+% Interpretation: models already extract relevant high-frequency information from RGB.
+
+\section{Stage 4: Combined A+B+C with Advanced Regularisation (Experiments 13--14)}
+
+% Describe dataset\_combined\_v2 construction.
+% Training curves: loss, accuracy, F1 for both models (Figures).
+% Highlight the LR scheduling effect at epoch 12 -> peak at epoch 14 (ResNet-50).
+% Results table: A, B, C test F1 for both models.
+% Confusion matrices (Figures) for key evaluations.
+
+\section{Per-Generator Analysis of Dataset B}
+
+% Motivation: aggregate Dataset B F1 hides generator-specific information.
+% Method: metadata CSV filtering by label\_b.
+% Results table: per-generator F1 for ResNet-50 and ResNet-18.
+% Bar chart (Figure): F1 per generator.
+% Key findings:
+%   - DALL-E 3 easiest (F1=0.70): distinctive visual style
+%   - SD 2.1 hardest of trained generators (F1=0.65)
+%   - MidJourney v6 near-random (F1=0.52): never seen during training
