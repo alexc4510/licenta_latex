@@ -1,72 +1,466 @@
 \chapter{Datasets and Methodology}
+\label{ch:methodology}
 
 \section{Datasets}
+\label{sec:datasets}
 
-\subsection{Dataset A — AI vs. Human-Generated Images}
+Three publicly available datasets were selected to span two distinct generation paradigms and three
+independent real image distributions. Covering both diffusion-based synthesis and generative
+adversarial networks was essential for studying cross-dataset generalisation: a detector that
+succeeds within one paradigm may fail entirely on the other. Equally important is the diversity of
+real images: a model that overfits to the statistical properties of one real image source will
+perform poorly when tested against photographs from a different source.
+Table~\ref{tab:dataset_summary} summarises the key properties of each dataset.
 
-% Source: Kaggle. ~80k images, balanced, 80/10/10 split.
-% Real: Shutterstock photographs.
-% AI: Stable Diffusion v1.5 (diffusion paradigm).
-% Preprocessing: stratified split, 224x224 center-crop.
+\begin{table}[tb]
+  \centering
+  \caption{Summary of the three datasets used in this study.}
+  \label{tab:dataset_summary}
+  \begin{tabular}{lllll}
+    \hline
+    \textbf{ID} & \textbf{Train} & \textbf{Test} & \textbf{Real source} & \textbf{Balance} \\
+    \hline
+    Dataset A & 79,950 & 7,995  & Shutterstock & 1:1 \\
+    Dataset B & 42,000 & 45,000 & MS-COCO      & 1:5 (test) \\
+    Dataset C & 100,000 & 20,000 & FFHQ         & 1:1 \\
+    \hline
+  \end{tabular}
+\end{table}
 
-\subsection{Dataset B — Defactify Image Dataset}
+\subsection{Dataset A --- AI vs.\ Human-Generated Images}
+\label{sec:dataset_a}
 
-% Source: HuggingFace. 96k images, 1:5 class imbalance (real:AI).
-% Real: MS-COCO captions, natural photographs.
-% AI: SD2.1, SDXL, SD3, DALL-E3, MidJourney v6.
-% Each real image semantically paired with 5 AI counterparts from the same caption.
+Dataset A is a binary classification dataset available on Kaggle. It contains 79,950 training
+images and 7,995 test images, with both splits balanced between classes: 39,975 real and 39,975
+AI images in the training set, and 3,998 real and 3,997 AI images in the test set.
 
-\subsection{Dataset C — 140k Real and Fake Faces}
+The real images are professional photographs obtained from Shutterstock, covering a broad range of
+subjects including people, animals, landscapes, and objects. The AI-generated images were produced
+by Stable Diffusion v1.5~\cite{rombach2022}, a latent diffusion model that generates images from
+text prompts through iterative denoising in a compressed latent space. SD v1.5 outputs are
+photorealistic and stylistically diverse.
 
-% Source: Kaggle. 140k images, balanced.
-% Real: FFHQ (Flickr-Faces-HQ) portrait faces.
-% AI: StyleGAN (GAN paradigm).
+All images were pre-resized to $224 \times 224$ pixels using a centre-crop operation and stored
+in RGB format on Google Drive prior to training.
+
+\subsection{Dataset B --- Defactify Image Dataset}
+\label{sec:dataset_b}
+
+Dataset B is the Defactify Image Dataset, available on HuggingFace. It covers five diffusion systems (Stable Diffusion 2.1, SDXL,
+Stable Diffusion 3, DALL-E 3, and MidJourney v6) spanning multiple generator families and
+capability levels. The real images are natural
+photographs sourced from MS-COCO, covering everyday scenes such as kitchens, street scenes, and
+outdoor environments.
+
+The dataset is structured with semantic pairing: each real image is associated with five
+AI-generated counterparts, one per generator, each produced from the same MS-COCO caption.
+This pairing creates a direct semantic correspondence between the real and AI images, which
+makes purely semantic shortcuts less exploitable by a detector.
+
+The class distribution of the test set is imbalanced: 7,500 real images and 37,500
+AI-generated images (7,500 per generator), yielding a 1:5 real-to-AI ratio. This imbalance
+reflects the fact that each real image has five AI counterparts. Table~\ref{tab:dataset_b_splits}
+shows the training subset used in this study.
+
+\begin{table}[tb]
+  \centering
+  \caption{Dataset B training subset composition. Each generator contributes 7,000 AI images;
+           the real images are selected from the corresponding MS-COCO subset.}
+  \label{tab:dataset_b_splits}
+  \begin{tabular}{lrr}
+    \hline
+    \textbf{Source} & \textbf{Class} & \textbf{Images} \\
+    \hline
+    SD 2.1         & AI   & 7,000 \\
+    SDXL           & AI   & 7,000 \\
+    SD 3           & AI   & 7,000 \\
+    DALL-E 3       & AI   & 7,000 \\
+    MidJourney v6  & AI   & 7,000 \\
+    MS-COCO photographs & Real & 7,000 \\
+    \hline
+    \textbf{Total} &      & 42,000 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+A metadata CSV supplied with the dataset provides a \texttt{label\_b} column encoding the
+generator identity of each AI image (1 = SD 2.1, 2 = SDXL, 3 = SD 3, 4 = DALL-E 3,
+5 = MidJourney v6). This column was used in the per-generator evaluation described in
+Section~\ref{sec:eval_protocol}.
+
+All images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
+
+\subsection{Dataset C --- 140k Real and Fake Faces}
+\label{sec:dataset_c}
+
+Dataset C is available on Kaggle and contains 140,000 face images: 100,000 in the training split
+and 20,000 in the test split, with both splits balanced. The real images originate from the
+Flickr-Faces-HQ (FFHQ) dataset, which consists of high-quality portrait photographs scraped from
+Flickr. The AI-generated images were produced by StyleGAN~\cite{karras2019}, a GAN-based
+architecture that generates photorealistic face images through adversarial training between a
+generator network and a discriminator network.
+
+Dataset C is the sole representative of the GAN generation paradigm in this study, in contrast
+to the diffusion-based paradigms of Datasets A and B. Its domain is also highly specialised:
+all images are portrait faces with consistent framing and aspect ratio. This domain specificity makes the detection task easier in-distribution, since a classifier can
+exploit face-specific artefacts, but limits the transferability of the learned representation
+to non-face domains.
+
+Images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Combined Datasets}
+\label{sec:combined_datasets}
 
-% dataset\_combined (B+C, 28k): 50\% diffusion, 50\% GAN — Experiments 9--12.
-% dataset\_combined\_v2 (A+B+C, 80k): multi-source, multi-paradigm — Experiments 13--14.
-%   - MidJourney v6 excluded (rationale: paradigm overlap with Dataset A diffusion content)
-%   - Dataset B semantically paired construction
-%   - No real test split; evaluated on original test splits of A, B, C.
+Two combined datasets were constructed to study the effect of training data diversity on
+cross-dataset generalisation.
+
+\textbf{dataset\_combined (Experiments 9--12).} This dataset merges training subsets from Datasets
+B and C. It contains 28,000 training images: 7,000 real and 7,000 AI from Dataset B (1,400
+images per generator across five generators), and 7,000 real and 7,000 AI from Dataset C. The
+resulting corpus is evenly split between diffusion-generated and GAN-generated AI images.
+The motivation was to test whether mixing two paradigms already improves out-of-distribution
+generalisation to Dataset A, which was held out entirely. No dedicated test split was created;
+models were evaluated on the original test sets of Datasets A, B, and C.
+
+\textbf{dataset\_combined\_v2 (Experiments 13--14).} The second combined dataset merges all three
+source datasets into an 80,000-image training corpus: 40,000 real images and 40,000 AI images.
+Table~\ref{tab:combined_v2} shows the composition.
+
+\begin{table}[tb]
+  \centering
+  \caption{Composition of dataset\_combined\_v2. MidJourney v6 was excluded from training
+           to serve as an unseen-generator probe at evaluation time.}
+  \label{tab:combined_v2}
+  \begin{tabular}{lrr}
+    \hline
+    \textbf{Source} & \textbf{Real images} & \textbf{AI images} \\
+    \hline
+    Dataset A (Shutterstock / SD v1.5)     & 23,000 & 23,000 \\
+    Dataset B (MS-COCO / 4 generators)     & 7,000  & 7,000  \\
+    Dataset C (FFHQ / StyleGAN)            & 10,000 & 10,000 \\
+    \hline
+    \textbf{Total}                          & 40,000 & 40,000 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+The Dataset B subset used four generators (SD 2.1, SDXL, SD 3, DALL-E 3), with 1,750 AI images
+per generator. MidJourney v6 was excluded from training so that it could be used as an
+unseen-generator probe at evaluation time, providing a controlled test of whether the model
+generalises to a generator it has never seen. The Dataset B real images and their AI counterparts
+were selected using the semantic pairing from the original dataset, preserving semantic alignment.
+
+The validation split contains 12,643 images. The target was 13,000; the discrepancy is due to
+FUSE indexing behaviour in the Google Drive filesystem during dataset construction.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Model Architecture}
+\label{sec:architecture}
 
-% ResNet-18 (~11.7M params) and ResNet-50 (~25.6M params) \cite{he2016}.
-% Residual block, skip connections, identity shortcut.
-% Pretrained ImageNet weights: transfer learning rationale.
-% Modified final FC layer: 1000 classes -> 2 (ai=0, real=1).
+Two ResNet architectures~\cite{he2016} were used throughout all experiments: ResNet-18 and
+ResNet-50.
+
+ResNet (Residual Network) is a convolutional neural network family introduced by He et al.\ to
+enable training of very deep networks by addressing the vanishing gradient problem. The core idea
+is the residual block: instead of learning a direct mapping from input $\mathbf{x}$ to output
+$\mathbf{y}$, the network learns a residual function $\mathcal{F}(\mathbf{x})$ and adds the
+original input via a shortcut connection:
+
+\begin{equation}
+  \mathbf{y} = \mathcal{F}(\mathbf{x}, \{W_i\}) + \mathbf{x}
+  \label{eq:residual}
+\end{equation}
+
+When the dimensions of $\mathbf{x}$ and $\mathbf{y}$ differ (across downsampling stages), the
+shortcut is implemented with a $1 \times 1$ convolution. This identity path ensures that
+gradients can flow directly to early layers regardless of network depth, making deep networks
+trainable without degradation.
+
+The two architectures differ in the type of residual block used:
+\begin{itemize}
+  \item \textbf{ResNet-18} uses \textit{basic blocks}: each block contains two $3 \times 3$
+        convolutions with batch normalisation and ReLU activation. The network has four block
+        groups with (2, 2, 2, 2) blocks respectively, and 512 feature maps before the final
+        fully connected layer.
+  \item \textbf{ResNet-50} uses \textit{bottleneck blocks}: each block contains a $1 \times 1$
+        convolution to reduce dimensionality, a $3 \times 3$ convolution, and another
+        $1 \times 1$ convolution to restore dimensionality. The four block groups contain
+        (3, 4, 6, 3) blocks, and there are 2048 feature maps before the final fully connected
+        layer.
+\end{itemize}
+
+Table~\ref{tab:architectures} summarises the key properties of each model.
+
+\begin{table}[tb]
+  \centering
+  \caption{Comparison of the two ResNet architectures used in this study.}
+  \label{tab:architectures}
+  \begin{tabular}{lll}
+    \hline
+    \textbf{Property} & \textbf{ResNet-18} & \textbf{ResNet-50} \\
+    \hline
+    Total layers        & 18               & 50 \\
+    Block type          & Basic ($3{\times}3$, $3{\times}3$) & Bottleneck ($1{\times}1$, $3{\times}3$, $1{\times}1$) \\
+    Block groups        & (2, 2, 2, 2)     & (3, 4, 6, 3) \\
+    Feature dim (pre-FC) & 512             & 2048 \\
+    Parameters          & $\approx$11.7M  & $\approx$25.6M \\
+    \hline
+  \end{tabular}
+\end{table}
+
+Both models were initialised with weights pretrained on ImageNet, a large-scale visual
+recognition dataset containing over 1.2 million images across 1,000 categories. Transfer
+learning from ImageNet is standard practice: the convolutional layers encode general visual
+features (edges, textures, shapes, and increasingly abstract patterns at deeper layers)
+that transfer well to new visual classification tasks. Fine-tuning on the target dataset adapts
+these features to the binary real-vs-AI task.
+
+The final fully connected layer of each model was replaced to output two classes instead of the
+original 1,000 ImageNet classes. Class labels follow the alphabetical order imposed by PyTorch's
+\texttt{ImageFolder}: \texttt{ai} $= 0$, \texttt{real} $= 1$.
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Preprocessing}
+\label{sec:preprocessing}
+
+\subsection{Standard Preprocessing}
+\label{sec:standard_preprocessing}
+
+All images across all three datasets were pre-resized to $224 \times 224$ pixels using a
+centre-crop operation and converted to RGB. Pre-resizing was performed offline and stored to
+Google Drive before training, eliminating repeated resizing overhead during data loading.
+
+During training and evaluation, images were normalised using ImageNet channel statistics:
+
+\begin{equation}
+  \hat{x}_c = \frac{x_c - \mu_c}{\sigma_c}
+  \label{eq:normalisation}
+\end{equation}
+
+where $x_c$ is the raw pixel value in channel $c \in \{\text{R}, \text{G}, \text{B}\}$,
+$\mu = [0.485,\, 0.456,\, 0.406]$, and $\sigma = [0.229,\, 0.224,\, 0.225]$. These statistics
+were computed from the ImageNet training set and are standard for models pretrained on ImageNet,
+as they ensure the input distribution at inference time matches the distribution seen during
+pretraining.
+
+\subsection{Difference of Gaussians Preprocessing (Experiments 11--12)}
+\label{sec:dog_preprocessing}
+
+In Experiments 11 and 12, an alternative input representation was evaluated: the Difference of
+Gaussians (DoG) transform, applied to the greyscale conversion of each image before feeding it
+to the model.
+
+The DoG is computed as:
+
+\begin{equation}
+  \text{DoG}(I) = G(I,\, \sigma_1) - G(I,\, \sigma_2)
+  \label{eq:dog}
+\end{equation}
+
+where $G(I, \sigma)$ denotes convolution of image $I$ with a Gaussian kernel of standard
+deviation $\sigma$, and $\sigma_1 < \sigma_2$. With $\sigma_1 = 1.0$ and $\sigma_2 = 2.0$, the
+DoG acts as a band-pass filter, suppressing both very low-frequency content (large-scale
+structure, colour) and very high-frequency noise, while emphasising edges and fine textures in
+the intermediate frequency band. The output is normalised to $[0,\,1]$ and replicated across
+three channels to produce a $224 \times 224 \times 3$ input compatible with the model.
+
+This preprocessing targets characteristic upsampling artefacts produced by generative models,
+particularly GANs, which manifest as periodic spectral peaks in the high-frequency domain.
+Filtering out colour and low-frequency content was expected to expose these artefacts more
+directly to the classifier. The results of this preprocessing are presented in Chapter~4.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Training Setup}
+\label{sec:training}
 
 \subsection{Standard Configuration (Experiments 1--12)}
+\label{sec:standard_config}
 
-% Loss: CrossEntropyLoss with inverse-frequency class weights.
-% Optimiser: Adam, lr=1e-4. Batch size: 128.
-% Preprocessing: 224x224 pre-resized, ImageNet normalisation.
-% Augmentation: RandomHorizontalFlip only.
-% Evaluation metric: macro-averaged F1-score.
+Experiments 1 through 12 used a common training configuration.
+
+\textbf{Loss function.} Cross-entropy loss was used with inverse-frequency class weights to
+compensate for class imbalance. The weight for class $c$ was set to:
+
+\begin{equation}
+  w_c = \frac{N}{C \cdot n_c}
+  \label{eq:class_weight}
+\end{equation}
+
+where $N$ is the total number of training samples, $C$ is the number of classes, and $n_c$ is
+the number of samples in class $c$. For balanced datasets (A and C), these weights are equal.
+For Dataset B, the real class receives a weight five times higher than the AI class,
+counteracting the 1:5 training imbalance.
+
+\textbf{Optimiser.} Adam with a learning rate of $\eta = 10^{-4}$ and default momentum
+parameters ($\beta_1 = 0.9$, $\beta_2 = 0.999$). Batch size was 128.
+
+\textbf{Preprocessing and augmentation.} Standard preprocessing as described in
+Section~\ref{sec:standard_preprocessing} was applied to all inputs. The only data augmentation
+during training was random horizontal flipping with probability 0.5. No augmentation was applied
+at evaluation time.
+
+\textbf{Checkpoint selection.} Model weights were saved at each epoch. The checkpoint with the
+highest validation accuracy was selected as the best model for final test evaluation.
 
 \subsection{Advanced Configuration (Experiments 13--14)}
+\label{sec:advanced_config}
 
-% Loss: Focal Loss \cite{lin2017} (gamma=2.0, label\_smoothing=0.1).
-%   FL(p_t) = -(1-p_t)^gamma * log(p_t)
-%   Down-weights easy examples; label smoothing prevents overconfidence.
-% Extended augmentation: ColorJitter + RandomRotation(10deg) + RandomErasing(p=0.2).
-% LR warmup: linear over 2 epochs (0 -> 1e-4).
-% ReduceLROnPlateau: factor=0.5, patience=3.
-% Early stopping: patience=5 on val F1. Gradient clipping: max\_norm=1.0.
+Experiments 13 and 14 used an extended configuration designed to improve generalisation on the
+larger and more diverse dataset\_combined\_v2.
+
+\textbf{Loss function.} Cross-entropy was replaced by Focal Loss~\cite{lin2017}:
+
+\begin{equation}
+  \text{FL}(p_t) = -(1 - p_t)^{\gamma} \log(p_t)
+  \label{eq:focal_loss}
+\end{equation}
+
+where $p_t$ is the model's estimated probability for the correct class and $\gamma$ is the
+focusing parameter, set to $\gamma = 2.0$. Focal Loss down-weights easy examples (those the
+model classifies with high confidence) and concentrates training on hard misclassifications.
+Label smoothing with $\varepsilon = 0.1$ was also applied, replacing the hard one-hot targets
+$(1, 0)$ with soft labels $(1 - \varepsilon, \varepsilon / (C-1))$ to prevent overconfident
+predictions and improve calibration.
+
+\textbf{Data augmentation.} The augmentation pipeline was extended to include:
+\begin{itemize}
+  \item \textit{Random horizontal flip} (probability 0.5): invariance to left-right orientation,
+        applicable to all three datasets.
+  \item \textit{ColorJitter}: random perturbations to brightness, contrast, saturation, and hue.
+        AI-generated images often have subtly different colour statistics to photographs; this
+        augmentation prevents the model from exploiting those differences as a shortcut.
+  \item \textit{RandomRotation} (up to $10^\circ$): small rotations improve robustness to slight
+        orientation differences between the real and AI image distributions.
+  \item \textit{RandomErasing} (probability 0.2): randomly masks a rectangular region of the
+        input. This discourages the model from relying on a single localised region and forces it
+        to use distributed evidence, which is beneficial for cross-dataset transfer.
+\end{itemize}
+All augmentations were applied only during training.
+
+\textbf{Learning rate schedule.} A linear warmup was applied over the first two epochs,
+linearly increasing the learning rate from 0 to $\eta = 10^{-4}$. After warmup, a
+\texttt{ReduceLROnPlateau} scheduler monitored validation F1-score and reduced the learning
+rate by a factor of 0.5 when it did not improve for 3 consecutive epochs. The minimum learning
+rate was $10^{-6}$.
+
+\textbf{Early stopping.} Training was halted when validation F1-score did not improve for 5
+consecutive epochs. The maximum number of training epochs was set to 20.
+
+\textbf{Gradient clipping.} Gradient norms were clipped to a maximum of 1.0 per parameter to
+prevent instability in early epochs when the warmup LR is still low.
+
+\textbf{Checkpoint selection.} For Experiments 13 and 14, the checkpoint with the highest
+validation F1-score was used. This change from the standard configuration aligns checkpoint
+selection with the primary evaluation metric.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Evaluation Protocol}
+\label{sec:eval_protocol}
 
-% Best checkpoint: val\_acc for Exp 1--12, val\_f1 for Exp 13--14.
-% Metrics: accuracy, macro precision/recall/F1, confusion matrix, per-class report.
-% Cross-dataset matrix: every (trained\_on, tested\_on) combination.
-% Per-generator evaluation: Dataset B test split filtered by label\_b metadata CSV.
+\subsection{Evaluation Metrics}
+\label{sec:metrics}
+
+The primary evaluation metric throughout all experiments is the macro-averaged F1-score. Let
+$\text{TP}_c$, $\text{FP}_c$, and $\text{FN}_c$ denote the true positives, false positives, and
+false negatives for class $c$ respectively. The per-class precision and recall are:
+
+\begin{equation}
+  P_c = \frac{\text{TP}_c}{\text{TP}_c + \text{FP}_c},
+  \qquad
+  R_c = \frac{\text{TP}_c}{\text{TP}_c + \text{FN}_c}
+  \label{eq:pr}
+\end{equation}
+
+The per-class F1-score is the harmonic mean of precision and recall:
+
+\begin{equation}
+  F1_c = \frac{2 \cdot P_c \cdot R_c}{P_c + R_c}
+        = \frac{2\,\text{TP}_c}{2\,\text{TP}_c + \text{FP}_c + \text{FN}_c}
+  \label{eq:f1}
+\end{equation}
+
+The macro-averaged F1-score averages $F1_c$ uniformly over all classes, regardless of class
+frequency:
+
+\begin{equation}
+  F1_{\text{macro}} = \frac{1}{C} \sum_{c=1}^{C} F1_c
+  \label{eq:macro_f1}
+\end{equation}
+
+With $C = 2$ (AI and real), macro F1 gives equal weight to both classes. This is the appropriate
+metric for imbalanced datasets such as the Dataset B test set (1:5 imbalance): accuracy alone
+would overstate performance by favouring the majority AI class, whereas macro F1 penalises
+disproportionate failures on either class.
+
+\subsection{In-Distribution Evaluation}
+\label{sec:indist_eval}
+
+For experiments with a dedicated test split (Experiments 1--8), the best checkpoint was
+evaluated on the corresponding test set. Reported metrics include macro accuracy, macro
+precision, macro recall, macro F1-score, a per-class breakdown, and a confusion matrix.
+
+\subsection{Cross-Dataset Evaluation}
+\label{sec:crossdataset_eval}
+
+For all Stage~1 models (Experiments 1--6), each best checkpoint was additionally evaluated on
+the test sets of all three datasets, regardless of which dataset it was trained on. This
+produces a $3 \times 3$ cross-dataset generalisation matrix where entry $(i, j)$ is the macro
+F1-score of the model trained on dataset $i$ and tested on dataset $j$:
+
+\begin{equation}
+  M_{ij} = F1_{\text{macro}}\bigl(\theta_i^*,\; \mathcal{D}_j^{\text{test}}\bigr)
+  \label{eq:generalisation_matrix}
+\end{equation}
+
+where $\theta_i^*$ denotes the best checkpoint of the model trained on dataset $i$. The diagonal
+entries ($M_{ii}$) represent in-distribution performance; the off-diagonal entries quantify
+generalisation to unseen data distributions.
+
+\subsection{Combined Dataset Evaluation}
+\label{sec:combined_eval}
+
+For Experiments 9--14, where no dedicated test split was constructed, models were evaluated
+directly on the original test sets of Datasets A, B, and C. For the combined models this
+evaluates both in-distribution (datasets present in training) and out-of-distribution
+(Experiments 9--12, where Dataset A was never seen during training) performance.
+
+\subsection{Per-Generator Evaluation}
+\label{sec:pergenerator_eval}
+
+The Dataset B test set contains 7,500 AI images from each of the five generators, paired with
+7,500 real images per subset. The metadata CSV was used to filter the test set by
+\texttt{label\_b}, producing five subsets (7,500 real + 7,500 AI from one generator each).
+Each checkpoint was evaluated separately on each subset, yielding per-generator accuracy and
+macro F1-score. This evaluation was performed for Experiments 13 and 14 only, since they
+represent the final combined training configuration.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Implementation}
+\label{sec:implementation}
 
-% Python, PyTorch 2.3.0, torchvision 0.18.0.
-% Google Colab T4 GPU, Google Drive for persistence.
-% Custom DataLoader with Drive-compatible os.listdir (not glob — Drive FUSE indexing issues).
-% Checkpoint system: saves val\_acc, val\_f1, early stopping state per epoch.
+All experiments were implemented in Python using PyTorch 2.3.0 and torchvision 0.18.0. Training
+was performed on a Google Colab environment with an NVIDIA T4 GPU (16~GB VRAM). Datasets were
+stored on Google Drive, with all images pre-resized to $224 \times 224$ pixels before training
+to eliminate repeated resizing overhead during data loading.
+
+File enumeration in the DataLoader was implemented using \texttt{os.listdir} rather than
+Python's \texttt{glob} module. The FUSE driver used by the Google Drive filesystem produced
+incomplete file listings when glob patterns were used, causing random training samples to be
+silently dropped. The \texttt{os.listdir} approach was verified to enumerate all files
+correctly.
+
+cuDNN benchmark mode was enabled (\texttt{torch.backends.cudnn.benchmark = True}), allowing
+cuDNN to select optimised convolution algorithms for the fixed $224 \times 224$ input size.
+Two DataLoader worker processes with a prefetch factor of 2 were used to overlap data loading
+with GPU computation, maintaining high GPU utilisation throughout training.
+
+The checkpoint system saved model weights, optimiser state, and training metadata (current
+epoch, best validation metric, early stopping counter) at each epoch, allowing training to be
+resumed after runtime interruptions without loss of progress.

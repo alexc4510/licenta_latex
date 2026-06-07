@@ -1,0 +1,4 @@
+,ai_vs_human,dataset_b,dataset_c
+ai_vs_human,0.9922,0.1771,0.3333
+dataset_b,0.5891,0.6581,0.5019
+dataset_c,0.3357,0.1436,0.9928
