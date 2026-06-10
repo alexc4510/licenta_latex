@@ -12,9 +12,9 @@ real images: a model that overfits to the statistical properties of one real ima
 perform poorly when tested against photographs from a different source.
 Table~\ref{tab:dataset_summary} summarises the key properties of each dataset.
 
-\begin{table}[tb]
+\begin{table}[h!]
   \centering
-  \caption{Summary of the three datasets used in this study.}
+  \caption{Summary of the three publicly available datasets used in this study.}
   \label{tab:dataset_summary}
   \begin{tabular}{lllll}
     \hline
@@ -62,7 +62,26 @@ AI-generated images (7,500 per generator), yielding a 1:5 real-to-AI ratio. This
 reflects the fact that each real image has five AI counterparts. Table~\ref{tab:dataset_b_splits}
 shows the training subset used in this study.
 
-\begin{table}[tb]
+
+A metadata CSV supplied with the dataset provides a \texttt{label\_b} column encoding the
+generator identity of each AI image (1 = SD 2.1, 2 = SDXL, 3 = SD 3, 4 = DALL-E 3,
+5 = MidJourney v6). This column was used in the per-generator evaluation described in
+Section~\ref{sec:eval_protocol}.
+
+The five generators in Dataset~B span a wide capability range as of 2024. SD~2.1 is a
+second-generation latent diffusion model with improved text-image alignment relative to
+SD~1.5. SDXL is a larger-scale variant with a two-stage refinement pipeline that
+produces higher-resolution and more photorealistic outputs. SD~3 adopts a diffusion
+transformer architecture with multi-modal text conditioning. DALL-E~3 is a commercial
+system with proprietary architecture and safety filtering that tends to produce clean,
+high-contrast outputs. MidJourney~v6 is the most stylistically distinct of the five:
+its outputs have a characteristic aesthetic quality, high perceptual sharpness, and
+deliberate compositional choices that differ visually from the other four. These
+stylistic differences across generators are the source of the AI recall variation
+(0.43--0.78) observed in the per-generator evaluation.
+
+All images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
+\begin{table}[h!]
   \centering
   \caption{Dataset B training subset composition. Each generator contributes 7,000 AI images;
            the real images are selected from the corresponding MS-COCO subset.}
@@ -83,24 +102,6 @@ shows the training subset used in this study.
   \end{tabular}
 \end{table}
 
-A metadata CSV supplied with the dataset provides a \texttt{label\_b} column encoding the
-generator identity of each AI image (1 = SD 2.1, 2 = SDXL, 3 = SD 3, 4 = DALL-E 3,
-5 = MidJourney v6). This column was used in the per-generator evaluation described in
-Section~\ref{sec:eval_protocol}.
-
-The five generators in Dataset~B span a wide capability range as of 2024. SD~2.1 is a
-second-generation latent diffusion model with improved text-image alignment relative to
-SD~1.5. SDXL is a larger-scale variant with a two-stage refinement pipeline that
-produces higher-resolution and more photorealistic outputs. SD~3 adopts a diffusion
-transformer architecture with multi-modal text conditioning. DALL-E~3 is a commercial
-system with proprietary architecture and safety filtering that tends to produce clean,
-high-contrast outputs. MidJourney~v6 is the most stylistically distinct of the five:
-its outputs have a characteristic aesthetic quality, high perceptual sharpness, and
-deliberate compositional choices that differ visually from the other four. These
-stylistic differences across generators are the source of the AI recall variation
-(0.43--0.78) observed in the per-generator evaluation.
-
-All images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
 
 \subsection{Dataset C --- 140k Real and Fake Faces}
 \label{sec:dataset_c}
@@ -175,8 +176,10 @@ unseen-generator probe at evaluation time, providing a controlled test of whethe
 generalises to a generator it has never seen. The Dataset B real images and their AI counterparts
 were selected using the semantic pairing from the original dataset, preserving semantic alignment.
 
-The validation split contains 12,643 images. The target was 13,000; the discrepancy is due to
-FUSE indexing behaviour in the Google Drive filesystem during dataset construction.
+Dataset A contributes the largest real-image share (23,000 of 40,000) because its
+Shutterstock photographs span the widest range of subjects. The unequal source proportions
+reflect data availability after applying the 1:1 constraint and the MidJourney v6
+exclusion, rather than a pre-specified target.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -361,6 +364,16 @@ at evaluation time.
 \textbf{Checkpoint selection.} Model weights were saved at each epoch. The checkpoint with the
 highest validation accuracy was selected as the best model for final test evaluation.
 
+The choice of Adam with $\eta = 10^{-4}$ reflects standard practice for fine-tuning
+ImageNet-pretrained ResNets on binary classification tasks. Adam's adaptive per-parameter
+learning rates accelerate convergence on the final classification layer, which begins with
+randomly initialised weights, while applying smaller effective updates to the pre-trained
+convolutional layers whose weights are already near their optimal values for feature
+extraction. The ten-epoch maximum is sufficient because ImageNet pretraining substantially
+reduces the required adaptation time: all Stage~1 models converge within four epochs, with
+no meaningful improvement observed in later epochs. Batch size~128 was the largest that
+fit within the 16~GB VRAM budget of the NVIDIA T4 GPU at $224\times224$ resolution.
+
 \subsection{Advanced Configuration (Experiments 13--14)}
 \label{sec:advanced_config}
 
@@ -380,6 +393,19 @@ model classifies with high confidence) and concentrates training on hard misclas
 Label smoothing with $\varepsilon = 0.1$ was also applied, replacing the hard one-hot targets
 $(1, 0)$ with soft labels $(1 - \varepsilon, \varepsilon / (C-1))$ to prevent overconfident
 predictions and improve calibration.
+
+Focal Loss was preferred over the inverse-frequency weighted cross-entropy used in
+Experiments~1--12 for two reasons. First, weighted cross-entropy addresses class imbalance
+at the distribution level by scaling all samples of the minority class equally, but does
+not distinguish between easy and hard examples within that class. Focal Loss applies an
+additional per-sample weight $(1 - p_t)^\gamma$ that is large when the model is uncertain
+($p_t$ near 0.5) and small when the model is confident, regardless of class membership.
+On a multi-source training corpus where some image subsets are consistently easier than
+others, this per-sample weighting prevents the easy subsets from dominating the gradient
+signal. Second, the larger and more diverse Stage~4 corpus makes overconfident predictions
+more likely: the model encounters many easy in-distribution examples alongside genuinely
+hard cross-source examples. Label smoothing with $\varepsilon = 0.1$ reduces overconfidence
+by preventing the model from assigning probability near 1.0 to any single class.
 
 \textbf{Data augmentation.} The augmentation pipeline was extended relative to the standard
 configuration. Table~\ref{tab:augmentation} summarises the transforms used in each
@@ -497,8 +523,19 @@ The Dataset B test set contains 7,500 AI images from each of the five generators
 7,500 real images per subset. The metadata CSV was used to filter the test set by
 \texttt{label\_b}, producing five subsets (7,500 real + 7,500 AI from one generator each).
 Each checkpoint was evaluated separately on each subset, yielding per-generator accuracy and
-macro F1-score. This evaluation was performed for Experiments 13 and 14 only, since they
+macro F1-score. This evaluation was performed for Experiments~13 and~14 only, since they
 represent the final combined training configuration.
+
+The balanced per-generator subsets differ from the full Dataset~B test set (7,500 real +
+37,500 AI) in one important respect: the 1:5 class imbalance is resolved. Macro F1-scores
+computed on a balanced subset give equal weight to both classes, making per-generator
+comparisons directly interpretable. On the imbalanced full test set, the aggregate macro
+F1 of 0.5798 is depressed primarily by real-class errors rather than by AI-class errors;
+the per-generator breakdown is the correct diagnostic for identifying which generators
+drive poor performance, because it separates real-class errors (which are consistent across
+generators) from AI-class errors (which vary by generator). The two evaluations are
+complementary: the aggregate F1 reflects overall deployment-level performance, while the
+per-generator analysis identifies the specific failure modes.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
