@@ -88,6 +88,18 @@ generator identity of each AI image (1 = SD 2.1, 2 = SDXL, 3 = SD 3, 4 = DALL-E 
 5 = MidJourney v6). This column was used in the per-generator evaluation described in
 Section~\ref{sec:eval_protocol}.
 
+The five generators in Dataset~B span a wide capability range as of 2024. SD~2.1 is a
+second-generation latent diffusion model with improved text-image alignment relative to
+SD~1.5. SDXL is a larger-scale variant with a two-stage refinement pipeline that
+produces higher-resolution and more photorealistic outputs. SD~3 adopts a diffusion
+transformer architecture with multi-modal text conditioning. DALL-E~3 is a commercial
+system with proprietary architecture and safety filtering that tends to produce clean,
+high-contrast outputs. MidJourney~v6 is the most stylistically distinct of the five:
+its outputs have a characteristic aesthetic quality, high perceptual sharpness, and
+deliberate compositional choices that differ visually from the other four. These
+stylistic differences across generators are the source of the AI recall variation
+(0.43--0.78) observed in the per-generator evaluation.
+
 All images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
 
 \subsection{Dataset C --- 140k Real and Fake Faces}
@@ -100,11 +112,22 @@ Flickr. The AI-generated images were produced by StyleGAN~\cite{karras2019}, a G
 architecture that generates photorealistic face images through adversarial training between a
 generator network and a discriminator network.
 
-Dataset C is the sole representative of the GAN generation paradigm in this study, in contrast
-to the diffusion-based paradigms of Datasets A and B. Its domain is also highly specialised:
-all images are portrait faces with consistent framing and aspect ratio. This domain specificity makes the detection task easier in-distribution, since a classifier can
-exploit face-specific artefacts, but limits the transferability of the learned representation
-to non-face domains.
+Dataset C is the sole representative of the GAN generation paradigm in this study, in
+contrast to the diffusion-based paradigms of Datasets~A and~B. Its domain is highly
+specialised: all images are portrait faces with consistent framing, centre-aligned
+subjects, and similar aspect ratios. The FFHQ real images are high-resolution
+photographs downloaded from Flickr under permissive licences and aligned using facial
+landmark detection, producing a dataset with low photographic diversity compared to
+Shutterstock or MS-COCO.
+
+This domain specificity has two consequences for detection. In-distribution, it makes
+the task easier: a classifier can exploit face-specific artefacts in StyleGAN outputs
+(ear lobe asymmetry, eye specular highlight inconsistency, background blurring
+patterns) that are not present in the FFHQ real images. The in-distribution F1 scores
+of 0.9978 (ResNet-50) and 0.9928 (ResNet-18) reflect this. Out-of-distribution, the
+specialisation limits transferability: a model trained on aligned face images has no
+exposure to the diverse subjects and compositions of Shutterstock or MS-COCO, and the
+learned representation fails to generalise.
 
 Images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
 
@@ -278,6 +301,37 @@ directly to the classifier. The results of this preprocessing are presented in C
 \section{Training Setup}
 \label{sec:training}
 
+Table~\ref{tab:training_configs} summarises the two training configurations used across
+all 14 experiments. The standard configuration (Experiments~1--12) prioritises
+simplicity and consistency across the single-source and combined-source baselines. The
+advanced configuration (Experiments~13--14) introduces regularisation components designed
+to improve generalisation on the larger and more diverse 80,000-image corpus.
+
+\begin{table}[htb]
+  \centering
+  \caption{Summary of training configurations for standard (Experiments~1--12) and
+           advanced (Experiments~13--14) setups.}
+  \label{tab:training_configs}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{lll}
+    \hline
+    \textbf{Component} & \textbf{Standard (Exp.~1--12)} & \textbf{Advanced (Exp.~13--14)} \\
+    \hline
+    Loss function        & Cross-entropy + inv.-freq. weights & Focal Loss ($\gamma=2.0$, $\varepsilon=0.1$) \\
+    Optimiser            & Adam ($\eta=10^{-4}$)              & Adam ($\eta=10^{-4}$) \\
+    Batch size           & 128                                & 128 \\
+    LR schedule          & None (fixed)                       & Linear warmup (2 epochs) + ReduceLROnPlateau \\
+    LR reduction factor  & ---                                & 0.5 on plateau (patience 3) \\
+    Min. learning rate   & ---                                & $10^{-6}$ \\
+    Early stopping       & No                                 & Yes (patience 5 on val F1) \\
+    Max epochs           & 10                                 & 20 \\
+    Gradient clipping    & No                                 & Yes (max\_norm = 1.0) \\
+    Checkpoint metric    & Validation accuracy                & Validation macro F1 \\
+    Augmentation         & RandomHorizontalFlip ($p=0.5$)     & Flip + ColorJitter + Rotation + RandomErasing \\
+    \hline
+  \end{tabular}}
+\end{table}
+
 \subsection{Standard Configuration (Experiments 1--12)}
 \label{sec:standard_config}
 
@@ -327,20 +381,26 @@ Label smoothing with $\varepsilon = 0.1$ was also applied, replacing the hard on
 $(1, 0)$ with soft labels $(1 - \varepsilon, \varepsilon / (C-1))$ to prevent overconfident
 predictions and improve calibration.
 
-\textbf{Data augmentation.} The augmentation pipeline was extended to include:
-\begin{itemize}
-  \item \textit{Random horizontal flip} (probability 0.5): invariance to left-right orientation,
-        applicable to all three datasets.
-  \item \textit{ColorJitter}: random perturbations to brightness, contrast, saturation, and hue.
-        AI-generated images often have subtly different colour statistics to photographs; this
-        augmentation prevents the model from exploiting those differences as a shortcut.
-  \item \textit{RandomRotation} (up to $10^\circ$): small rotations improve robustness to slight
-        orientation differences between the real and AI image distributions.
-  \item \textit{RandomErasing} (probability 0.2): randomly masks a rectangular region of the
-        input. This discourages the model from relying on a single localised region and forces it
-        to use distributed evidence, which is beneficial for cross-dataset transfer.
-\end{itemize}
-All augmentations were applied only during training.
+\textbf{Data augmentation.} The augmentation pipeline was extended relative to the standard
+configuration. Table~\ref{tab:augmentation} summarises the transforms used in each
+configuration and their parameters. All augmentations are applied only during training;
+no augmentation is applied at validation or test time.
+
+\begin{table}[htb]
+  \centering
+  \caption{Data augmentation transforms for standard and advanced training configurations.}
+  \label{tab:augmentation}
+  \begin{tabular}{lllp{5cm}}
+    \hline
+    \textbf{Transform} & \textbf{Standard} & \textbf{Advanced} & \textbf{Rationale} \\
+    \hline
+    RandomHorizontalFlip & Yes ($p=0.5$) & Yes ($p=0.5$) & Left-right symmetry holds for all three datasets \\
+    ColorJitter          & No            & Yes            & Prevents exploitation of colour statistics specific to each real-image source \\
+    RandomRotation       & No            & Yes ($\pm10^\circ$) & Robustness to slight orientation differences across distributions \\
+    RandomErasing        & No            & Yes ($p=0.2$)  & Discourages reliance on a single localised region; promotes distributed evidence \\
+    \hline
+  \end{tabular}
+\end{table}
 
 \textbf{Learning rate schedule.} A linear warmup was applied over the first two epochs,
 linearly increasing the learning rate from 0 to $\eta = 10^{-4}$. After warmup, a
@@ -464,3 +524,21 @@ with GPU computation, maintaining high GPU utilisation throughout training.
 The checkpoint system saved model weights, optimiser state, and training metadata (current
 epoch, best validation metric, early stopping counter) at each epoch, allowing training to be
 resumed after runtime interruptions without loss of progress.
+
+Colab runtime interruptions were a practical constraint throughout the project. Each Colab
+session has a maximum duration after which the runtime is recycled and all in-memory state
+is lost. Training was designed to tolerate this: on every session start, the training script
+checks for an existing checkpoint in the output directory on Google Drive and resumes from
+the last completed epoch if one is found. For all experiments except Experiment~14, this
+mechanism operated correctly. In Experiment~14, a runtime crash at epoch~3 overwrote the
+checkpoint of a previously completed run rather than resuming from it, because the session
+was inadvertently launched without confirming the target output path. The experiment was
+re-run from epoch~0; the final results in Chapter~4 come from this complete re-run. The
+training curves and per-generator bar chart from the overwritten first run were corrupted
+and are excluded from the thesis.
+
+The 16~GB VRAM ceiling of the T4 constrained the maximum feasible batch size to 128 images
+at $224\times224$ resolution with a ResNet-50 backbone. Larger batch sizes were not
+attempted. In practice, GPU memory was the binding constraint for all Stage~4 experiments;
+the combined dataset with Focal Loss and extended augmentation brought VRAM usage to
+approximately 14~GB during forward passes at batch size 128.

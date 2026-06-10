@@ -1,26 +1,202 @@
 \chapter{Introduction}
+\label{ch:introduction}
 
-\section{Motivation and Context}
+% ─────────────────────────────────────────────────────────────────────────────
 
-% The rise of generative models (GANs, diffusion models) and their social implications.
-% Deepfakes, misinformation, academic fraud — concrete real-world stakes.
-% Why automatic detection is necessary.
-% Why it is hard: modern generators produce images indistinguishable to the human eye.
+\section{Motivation}
+\label{sec:motivation}
 
-\section{Research Question}
+In 2014, generating a photorealistic fake image required a skilled artist and hours of
+manual work. By 2022, it required a text prompt and a few seconds of computation. The
+gap between what is real and what is generated has narrowed to the point where it is no
+longer reliably visible to the human eye, and in many cases is not visible at all.
 
-% State the cross-dataset generalisation problem explicitly.
-% "Do CNN detectors learn genuine generative artefacts, or dataset-specific shortcuts?"
-% Distinguish in-distribution performance from generalisation.
+The technology responsible for this shift falls into two main families. Generative
+Adversarial Networks~\cite{goodfellow2014}, introduced by Goodfellow et al.\ in 2014,
+train a generator and a discriminator in an adversarial loop: the generator attempts to
+produce images the discriminator cannot distinguish from real ones, and the discriminator
+attempts to tell them apart. StyleGAN~\cite{karras2019}, one of the most successful GAN
+architectures, produces human portrait images so visually consistent that a gallery of
+synthetic faces is indistinguishable from a stock photo library by casual inspection.
+Denoising Diffusion Probabilistic Models~\cite{ho2020}, introduced in 2020, approach the
+problem from the opposite direction: they learn to reverse a gradual noise process, and
+at inference time produce high-quality images by iteratively denoising random Gaussian
+noise. Latent Diffusion Models~\cite{rombach2022}, which operate the diffusion process in
+a compressed latent space rather than pixel space, made this approach computationally
+tractable at scale and produced the Stable Diffusion family of models now deployed in
+products used by millions. Contemporary systems, including DALL-E~3, MidJourney~v6, and
+SD~3, generate photorealistic images of arbitrary content from natural language
+descriptions at resolutions and quality levels that are routinely indistinguishable from
+photographs in controlled evaluations.
+
+The social implications are substantial. AI-generated images have been used to fabricate
+evidence in conflict reporting, to impersonate public figures in political propaganda, and
+to produce misleading content at a scale that outpaces manual moderation. Synthetic images
+have been deployed in disinformation campaigns during elections, where fabricated
+photographs of candidates in compromising situations have circulated on social media
+before fact-checkers could intervene. The speed of generation (seconds per image) and the
+low barrier to access (free or low-cost API endpoints) mean that the volume of potentially
+synthetic content entering platforms has grown faster than the capacity to label it.
+
+In scientific publishing, fabricated experimental images present a different but equally
+serious problem. Gel electrophoresis bands, microscopy images, and clinical photographs
+can be generated or manipulated to show results that were never obtained. Automated
+screening tools applied to submitted manuscripts have detected image duplication and
+manipulation at rates of several percent in some journal samples, suggesting that the
+problem is not rare. The introduction of generative models that can produce wholly
+synthetic experimental images rather than manipulating real ones raises the stakes:
+manipulation leaves detectable traces, whereas synthesis may not.
+
+Social media platforms moderate billions of images per month; even a small false negative
+rate on AI-generated content translates to a large absolute volume of synthetic material
+reaching audiences without disclosure. Detection of AI-generated images is therefore a
+practical problem with measurable consequences for information integrity, not a
+theoretical benchmark exercise.
+
+Automated detectors based on Convolutional Neural Networks approach the problem as a
+binary classification task: given an image, assign it to the ``real'' class or the
+``AI-generated'' class. CNN-based detectors have achieved strong in-distribution
+performance, with macro-averaged F1-scores above 0.99 on balanced benchmarks involving
+a single generator. The difficulty arises not in detecting the specific generator the
+model was trained on, but in generalising to generators it has not seen. Wang
+et al.~\cite{wang2020} showed that a CNN detector trained on one GAN architecture fails
+on images from a different GAN, even within the same generation paradigm. The same
+pattern appears across generation paradigms and dataset boundaries. A model that scores
+F1=0.9961 on its own training distribution can score 0.1553 on a different one, as the
+experiments in Chapter~4 confirm. The drop of 0.84~F1 between in-distribution and
+out-of-distribution performance on the same model is not an edge case. It is the
+central empirical observation that motivates this thesis.
+
+The failure raises a specific question. ResNet architectures~\cite{he2016} are capable
+of learning rich hierarchical representations from large labelled datasets. Their
+in-distribution performance is near-ceiling. The collapse at test time cannot be
+attributed simply to insufficient model capacity, because models with more parameters
+fail in essentially the same way. The failure must therefore reflect a property of what
+the models learn, not a limit on what they can represent. This leads directly to the
+hypothesis that CNN detectors learn statistical properties specific to their training
+dataset rather than features of the generation process itself.
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Research Question and Scope}
+\label{sec:research_question}
+
+This thesis investigates the cross-dataset generalisation behaviour of CNN-based AI image
+detectors trained on three publicly available datasets spanning two generation paradigms:
+diffusion models and a GAN. The central question is:
+
+\begin{quote}
+  \textit{Do CNN-based AI image detectors learn generative artefacts that transfer across
+  datasets and generator families, or do they overfit to dataset-specific statistical
+  shortcuts?}
+\end{quote}
+
+The investigation is empirical and systematic. Two architectures, ResNet-50 and ResNet-18,
+are trained on each dataset individually and on progressively larger combinations of
+datasets. Every trained model is evaluated on every test set, producing a 3$\times$3
+cross-dataset generalisation matrix for each architecture. The training corpus is expanded
+across four stages: from single-source training through a balanced variant, a combined
+two-dataset corpus with a comparison of RGB versus Difference of Gaussians input, and a full 80,000-image multi-source
+corpus with advanced regularisation. The progression is designed to isolate which training
+modifications produce genuine improvements in OOD robustness, rather than artefacts of
+in-distribution evaluation.
+
+The scope is restricted to CNN-based detectors fine-tuned from ImageNet-pretrained
+weights. More recent approaches, including the CLIP-based universal detector of Ojha
+et al.~\cite{ojha2023}, address the generalisation problem through architectural changes
+and frozen feature spaces. The CNN baseline studied here provides the reference point
+against which such improvements are measured, and the experiments document the specific
+failure modes that motivate them.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Contributions}
+\label{sec:contributions_intro}
 
-% - Three-dataset experimental study spanning two generation paradigms (diffusion, GAN)
-% - Quantitative 3x3 cross-dataset generalisation matrix
-% - Multi-stage training progression demonstrating data diversity as the key factor
-% - Per-generator breakdown of Dataset B failure modes
-% - Combined training corpus (A+B+C, 80k images) with advanced regularisation
+The main contributions of this thesis are the following.
+
+\textbf{Quantitative 3$\times$3 cross-dataset generalisation matrix.} All nine
+combinations of training dataset and test dataset are evaluated for both ResNet-50 and
+ResNet-18. The matrix covers Dataset~A (Stable Diffusion~v1.5 / Shutterstock),
+Dataset~B (five diffusion models / MS-COCO), and Dataset~C (StyleGAN / FFHQ), spanning
+two generation paradigms (diffusion and GAN) and three independent real-image sources
+(Shutterstock, MS-COCO, FFHQ). The minimum off-diagonal F1 is 0.1436; several cells
+reach exactly 0.3333, the value produced by a classifier that assigns every input to a
+single class. The matrix provides a fine-grained quantitative record of where
+generalisation fails, across which paradigm boundary, and at what severity, for both
+architectures simultaneously. Prior work covers multiple generators but within a single
+real-image source; the three-source design here separates generator shift from real-image
+source shift for the first time in a controlled multi-stage setting.
+
+\textbf{Multi-stage training progression demonstrating data diversity as the key factor.}
+Fourteen experiments across four stages trace the effect of each successive modification
+on OOD performance. Stage~1 establishes single-source baselines (best OOD F1 on Dataset~A
+of 0.6738). Stage~2 adds class-balance correction (marginal gain). Stage~3 combines two
+datasets and tests DoG preprocessing (OOD F1 on Dataset~A rises to 0.7361). Stage~4
+adds all three real-image sources with Focal Loss and extended augmentation (OOD F1 on
+Dataset~A reaches 0.9936). Each improvement correlates with the addition of a new
+real-image source, not with data volume alone. The controlled sequence isolates the
+effect of each modification, which aggregate comparisons across systems cannot do.
+
+\textbf{Per-generator breakdown of Dataset~B failure modes.} The Dataset~B test split is
+partitioned by generator label using the per-sample metadata CSV, producing five
+independent balanced evaluations (7,500 real + 7,500 AI each). This analysis reveals
+that real recall is uniformly 0.61 across all five generator subsets, including
+MidJourney~v6, which was excluded from training. The uniform floor is not visible in the
+aggregate F1 of 0.5798, which conflates real-class errors with generator-class variation.
+The per-generator methodology is applicable to any multi-generator benchmark with
+provenance metadata and provides a diagnostic for the source of errors that aggregate
+metrics do not offer.
+
+\textbf{DoG preprocessing ablation.} Difference of Gaussians preprocessing
+($\sigma_1=1.0$, $\sigma_2=2.0$) is evaluated against raw RGB as an alternative input
+representation across two architectures and three test datasets. In all six comparisons,
+RGB outperforms DoG: the losses are 0.005 F1 on Dataset~A, 0.011 on Dataset~B, and 0.013
+on Dataset~C for ResNet-50. The result establishes that ImageNet-pretrained CNNs already
+encode the high-frequency information that DoG is intended to expose, while DoG discards
+colour and low-frequency content that contributes to classification. This finding rules
+out spectral band-pass preprocessing as a path to improvement for standard fine-tuned
+architectures.
+
+\textbf{\texttt{dataset\_combined\_v2} multi-source training corpus.} An 80,000-image
+balanced corpus is constructed from three datasets spanning two paradigms, with
+MidJourney~v6 withheld as an unseen-generator probe. The corpus combines 23,000
+Shutterstock photographs, 7,000 MS-COCO images, and 10,000 FFHQ portraits as real images,
+paired with 40,000 AI images from six generator families. The construction methodology,
+training configuration, and evaluation scripts are included in the appendix.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Thesis Structure}
+\label{sec:structure}
 
-% One paragraph describing what each chapter covers.
+Chapter~2 reviews the literature relevant to this work. It covers the two main families
+of generative models (GANs and diffusion models), CNN-based approaches to AI image
+detection, the cross-dataset generalisation challenge, and the two most directly relevant
+prior works: Wang et al.~\cite{wang2020} (CNNSpot) and Ojha et al.~\cite{ojha2023}
+(universal fake image detector).
+
+Chapter~3 describes the three datasets and all methodological choices: dataset acquisition
+and preprocessing, combined corpus construction, the ResNet-18 and ResNet-50
+architectures, training configurations for both the standard (Experiments~1--12) and
+advanced (Experiments~13--14) setups, and the evaluation protocol including per-generator
+test filtering.
+
+Chapter~4 presents all 14 experiments in order of the four-stage progression. Each stage
+introduces its modifications, reports training dynamics, and presents test results across
+all three datasets. The chapter includes the full cross-dataset generalisation matrices,
+per-experiment result tables, training curves, confusion matrices, and the per-generator
+breakdown of Dataset~B.
+
+Chapter~5 interprets the results. It argues for the dataset-specific shortcut hypothesis,
+explains the three factors behind Dataset~B difficulty, traces the effect of data
+diversity across stages, explains why DoG preprocessing fails, analyses the learning rate
+scheduling benefit observed in Experiment~13, and examines the interaction between
+architecture capacity and data scale.
+
+Chapter~6 summarises the main findings, states the contributions, and proposes directions
+for future work.
+
+The appendix contains the Python source code for dataset construction, model training,
+cross-dataset evaluation, and per-generator analysis, included as code listings for
+reproducibility.

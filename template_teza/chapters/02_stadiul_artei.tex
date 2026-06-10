@@ -1,30 +1,336 @@
 \chapter{State of the Art}
+\label{ch:related_work}
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Generative Models}
+\label{sec:generative_models}
 
-% GAN overview: Goodfellow et al. 2014 \cite{goodfellow2014}. Discriminator-generator adversarial training.
-% StyleGAN \cite{karras2019} — the generator used in Dataset C.
-% Diffusion models: DDPM \cite{ho2020}, Latent Diffusion / Stable Diffusion \cite{rombach2022}.
-% Key deployed systems: SD v1.5, SDXL, SD3, DALL-E 3, MidJourney.
-% The quality gap: why modern generators make detection hard.
+\subsection{Generative Adversarial Networks}
+\label{subsec:gans}
+
+Generative Adversarial Networks~\cite{goodfellow2014}, proposed by Goodfellow et al.\ in
+2014, establish a two-player adversarial game between a generator network $G$ and a
+discriminator network $D$. The generator maps samples from a fixed prior distribution
+$z \sim p_z$ to the image space; the discriminator receives both real images drawn from
+the data distribution $p_{\text{data}}$ and synthetic images produced by $G$, and
+attempts to assign them to the correct class. Both networks are trained simultaneously
+through the minimax objective:
+
+\begin{equation}
+  \min_G \max_D \;\mathbb{E}_{x \sim p_{\text{data}}}[\log D(x)]
+  + \mathbb{E}_{z \sim p_z}[\log(1 - D(G(z)))]
+  \label{eq:gan_objective}
+\end{equation}
+
+At Nash equilibrium, the generator produces images whose distribution is
+indistinguishable from the real data distribution. In practice, training is unstable:
+the discriminator can saturate early, and the generator can collapse to a small number
+of modes. Significant engineering effort, including batch normalisation, spectral
+normalisation, and progressive growing, was required before GAN outputs reached
+photorealistic quality.
+
+StyleGAN~\cite{karras2019}, introduced by Karras et al.\ in 2019, addresses the quality
+and controllability problem through a style-based generator architecture. A mapping
+network $f: \mathcal{Z} \rightarrow \mathcal{W}$ transforms the input latent code $z$
+into an intermediate style vector $w$, which controls the synthesis network at each
+resolution level via adaptive instance normalisation. The spatial content of the image
+is separated from its style, and synthesis proceeds by progressively adding detail at
+increasing resolutions from $4\times4$ to $1024\times1024$. StyleGAN and its successors
+produce human portrait images at a resolution and perceptual quality where gallery-scale
+synthetic face collections are visually indistinguishable from stock photography. Dataset~C,
+one of the three datasets used in this thesis, is built from StyleGAN-generated faces
+paired with FFHQ real portraits.
+
+The instability of GAN training had a secondary effect that is relevant to detection. Early
+GAN generators, particularly those based on transposed convolution with fixed integer
+strides, converged to outputs with strong periodic artefacts. A transposed convolution with
+stride~2 introduces a checkerboard pattern in the spatial domain that appears as spectral
+peaks at Nyquist/2 in the FFT magnitude spectrum. These peaks are absent from natural
+photographs, whose spatial statistics follow an approximate $1/f$ decay. Detectors that
+operated on the frequency spectrum of early GAN outputs could reliably identify these peaks
+as evidence of generation. The artefacts were, in effect, a consequence of the discriminator
+failing to fully eliminate the upsampling grid structure from the generator's outputs.
+
+Early CNN-based detection methods were designed with GAN outputs in mind. GAN generators
+apply learned upsampling operations to increase spatial resolution at each stage; these
+operations introduce periodic artefacts in the frequency domain that are absent from
+camera-captured images. Detection methods that exploited these spectral signatures worked
+well when trained and tested on the same generator family, but the spectral patterns differ
+substantially between architectures. A detector trained on ProGAN artefacts does not
+generalise to StyleGAN artefacts, because the two architectures use different upsampling
+operations with different spectral footprints.
+
+\subsection{Diffusion Models}
+\label{subsec:diffusion_models}
+
+Denoising Diffusion Probabilistic Models~\cite{ho2020}, introduced by Ho et al.\ in 2020,
+take a different approach to generative modelling. The forward process defines a Markov
+chain that gradually corrupts a clean image $x_0$ into isotropic Gaussian noise over $T$
+steps:
+
+\begin{equation}
+  x_t = \sqrt{\bar{\alpha}_t}\, x_0 + \sqrt{1 - \bar{\alpha}_t}\, \epsilon,
+  \qquad \epsilon \sim \mathcal{N}(0, I)
+  \label{eq:ddpm_forward}
+\end{equation}
+
+where $\bar{\alpha}_t = \prod_{s=1}^t \alpha_s$ is the cumulative noise schedule. A
+neural network $\epsilon_\theta(x_t, t)$, typically a U-Net, is trained to predict the
+noise $\epsilon$ added at each step. At inference time, generation proceeds by sampling
+$x_T \sim \mathcal{N}(0, I)$ and iteratively applying the learned denoising step for
+$T$ steps. Because the model is trained on the denoising objective rather than an
+adversarial game, training is stable and does not suffer from mode collapse.
+
+Latent Diffusion Models~\cite{rombach2022}, introduced by Rombach et al.\ in 2022, make
+this approach computationally tractable at high resolution. An autoencoder compresses
+images into a lower-dimensional latent representation; the diffusion process runs in this
+latent space rather than in pixel space. A cross-attention mechanism in the denoising
+network conditions generation on an external signal, typically a CLIP text embedding,
+enabling text-to-image generation. The resulting Stable Diffusion models, beginning with
+version~1.5 and progressing through SD~2.1, SDXL, and SD~3, produce high-resolution
+photorealistic images from arbitrary text prompts at a computational cost accessible to
+consumer hardware. Commercial systems including DALL-E~3 and MidJourney~v6 build on the
+same latent diffusion principles. Dataset~A in this thesis uses Stable Diffusion~v1.5
+outputs; Dataset~B uses outputs from five diffusion-based generators including SD~2.1,
+SDXL, SD~3, DALL-E~3, and MidJourney~v6.
+
+The rise of diffusion models has made detection substantially harder than in the GAN era.
+A GAN generator is a fixed mapping from latent space to image space, and the artefacts it
+produces are characteristic of that mapping. A diffusion model iteratively refines an
+image across hundreds of denoising steps, with each step contributing small corrections
+that progressively remove spectral inconsistencies. Modern diffusion outputs at full
+resolution are consistently judged as photorealistic by human observers, and the
+model-specific artefacts are smaller in magnitude and more variable in character than
+those of earlier GAN architectures. Detection methods that relied on generator-specific
+spectral signatures face a harder target when the target is a diffusion model rather than
+a GAN.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{AI-Generated Image Detection}
+\label{sec:detection_methods}
 
-% Early methods: frequency domain analysis, steganalysis-inspired approaches.
-% CNN-based detectors: Wang et al. 2020 \cite{wang2020} — CNNSpot.
-%   Key finding: models trained on one generator fail on others.
-% Universal detectors: Ojha et al. 2023 \cite{ojha2023} — CLIP-based universal fake image detector.
-% Frequency domain approaches: spectral artefacts from GAN upsampling.
+\subsection{Early Approaches}
+\label{subsec:early_detection}
+
+The history of AI image detection mirrors the broader pattern of adversarial dynamics in
+computer vision: each generation of detectors is designed around the artefacts of the
+generators available at the time, and each generation of generators removes or weakens
+those artefacts. Early GAN architectures (2014--2018) produced outputs with strong
+checkerboard artefacts from transposed convolution upsampling, visible blurring at
+high spatial frequencies, and inconsistent tooth and hair textures. Detectors from the
+same period exploited these patterns effectively. The introduction of progressive growing
+(2018) and style-based synthesis (2019) produced outputs with substantially weaker
+spectral artefacts and higher perceptual quality, breaking earlier detectors. The shift
+to diffusion models (2020--2022) removed the fixed upsampling grid structure entirely,
+replacing it with iterative denoising that distributes synthesis artefacts over hundreds
+of steps; this change rendered spectral detectors unreliable as a class.
+
+Before CNN-based classifiers, AI image detection relied on hand-crafted features drawn
+from the signal processing and steganalysis literature. Spatial Rich Model features,
+co-occurrence matrices of noise residuals, and JPEG quantisation statistics were used to
+characterise the statistical fingerprint of synthesis operations. These methods achieved
+reasonable performance on early GAN architectures whose upsampling operations introduced
+strong and consistent spectral artefacts. As generator quality improved and upsampling
+pipelines became more sophisticated, the artefacts these methods targeted became weaker
+and less consistent across architectures, and performance degraded. The shift to CNN-based
+feature extraction was motivated by the need for representations that could adapt to the
+diversity of generator-specific fingerprints rather than relying on a fixed feature
+dictionary.
+
+\subsection{CNN-Based Detectors}
+\label{subsec:cnn_detectors}
+
+Wang et al.~\cite{wang2020} established the dominant CNN-based detection paradigm with
+their CNNSpot method. A ResNet~\cite{he2016} is fine-tuned on ProGAN-generated images
+alongside real images from the LSUN dataset. At training time, Gaussian blur and JPEG
+compression augmentation are applied to reduce reliance on high-frequency artefacts
+specific to the training generator. The model is then evaluated on images from 11
+different GAN architectures spanning a range of generator families.
+
+The central finding of Wang et al.\ is that training on one generator produces near-perfect
+in-distribution performance but substantially degraded performance on other generators.
+Even with augmentation, cross-generator F1 drops to near-random for architectures whose
+spectral footprint differs substantially from the training distribution. This finding,
+that CNN detectors learn generator-specific shortcuts rather than universal artefact
+signatures, is the central challenge addressed in this thesis. The work of Wang et al.\
+was conducted entirely within the GAN paradigm on a single real-image source; this thesis
+extends it to a cross-paradigm setting with three independent real-image sources and a
+controlled four-stage training progression.
+
+The ResNet architecture~\cite{he2016} is the backbone used in both CNNSpot and in all
+14 experiments in this thesis. ResNet introduced residual connections, also called skip
+connections, which allow a layer to learn the residual mapping $\mathcal{F}(x) = H(x) - x$
+rather than the full transformation $H(x)$. This enables the training of much deeper
+networks by providing a gradient path that bypasses each block and prevents vanishing
+gradients. ResNet-50 (~25.6M parameters) and ResNet-18 (~11.7M parameters) are used in
+this thesis, both initialised from ImageNet-pretrained weights and fine-tuned with a
+modified two-class output layer.
+
+\subsection{Universal and Architecture-Agnostic Detectors}
+\label{subsec:universal_detectors}
+
+Ojha et al.~\cite{ojha2023} proposed the most direct architectural response to the
+cross-generator generalisation failure identified by Wang et al. Rather than fine-tuning
+a CNN on synthetic images, they use a frozen CLIP ViT-L/14 backbone and classify images
+using nearest-neighbour distance in CLIP feature space to a set of reference images.
+Because the CLIP backbone is trained on a large and diverse corpus through a contrastive
+text-image objective rather than on an in-distribution detection task, its feature
+representations are less aligned with the statistical properties of any particular
+generator. Tested on 21 generators including both GANs and diffusion models, the method
+achieves substantially better cross-generator generalisation than CNN-based fine-tuning
+on the same benchmarks.
+
+The key insight of Ojha et al.\ is that the features learned by a task-specific
+fine-tuned CNN are biased toward the training distribution in ways that do not transfer.
+A backbone with broader pretraining produces a feature space where the boundary between
+real and AI images is more stable across generators. This thesis studies the same failure
+mode from a data composition angle rather than an architectural one: instead of changing
+the feature extractor, the training corpus is diversified across multiple generators and
+real-image sources. The two approaches are complementary, and the shortcut-learning failure
+documented in the cross-dataset matrix provides a precise characterisation of what the
+CLIP-based approach is designed to avoid.
+
+\subsection{Spectral and Frequency Domain Approaches}
+\label{subsec:spectral_detection}
+
+Several detection approaches exploit the periodic spectral artefacts that GAN upsampling
+grids produce. When a generator applies transposed convolution or nearest-neighbour
+upsampling at a fixed stride, the operation introduces spectral peaks at frequencies
+determined by that stride. These peaks appear in the FFT magnitude spectrum of generated
+images as regular grid-like patterns absent from camera-captured photographs, whose
+spectral content follows a natural $1/f$ decay. Detectors that operate in the frequency
+domain or use spectral features as input can exploit these patterns directly.
+
+A related preprocessing approach applies band-pass filtering, such as Difference of
+Gaussians, to suppress low-frequency content and isolate the frequency bands where
+generative artefacts concentrate. If the detector is supplied with a band-pass image
+rather than the raw RGB input, the task of identifying spectral irregularities is
+simplified. The DoG transform with parameters $\sigma_1 = 1.0$ and $\sigma_2 = 2.0$
+produces a band-pass response centred roughly on the spatial frequency range
+$[1/(2\sigma_2),\, 1/(2\sigma_1)]$ cycles per pixel, which covers the upsampling
+artefact frequencies of typical GAN architectures with stride~2 or stride~4.
+
+Diffusion models, which apply many small iterative refinements rather than a single
+upsampling step, produce weaker and less consistent spectral artefacts than early GANs.
+Each denoising step contributes a small correction that partially cancels the spectral
+irregularities introduced by the previous step; the result is that modern diffusion
+outputs lack the strong periodic peaks characteristic of transposed-convolution GANs.
+Frequency-domain detection has therefore become less reliable as diffusion models have
+displaced GANs as the dominant generation paradigm. Experiments~11 and~12 in Chapter~4
+test the DoG preprocessing hypothesis directly on both diffusion-model and GAN datasets;
+the results show consistent degradation relative to the RGB baseline and are analysed in
+detail in Chapter~5.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Datasets for AI Image Detection}
+\label{sec:detection_datasets}
 
-% Describe the landscape of public datasets.
-% Specifically describe our three datasets in this context.
-% Note the challenge of dataset diversity (different real image sources, different generators).
+A detection benchmark requires, at minimum, a balanced or known-imbalance split of real
+and AI images, a held-out test set that withholds at least some generators from training,
+and provenance metadata that identifies which generator produced each AI image. These
+requirements are less commonly satisfied than in-distribution benchmarks, where a single
+generator is used and the real-image source is fixed.
+
+The ForenSynths benchmark introduced by Wang et al.~\cite{wang2020} comprises images
+from 11 GAN architectures alongside real images from the LSUN large-scale scene dataset.
+All 11 generators belong to the GAN paradigm. The real-image source is uniform across
+all test subsets. ForenSynths was the primary benchmark for evaluating cross-generator
+generalisation in the GAN era and established that in-distribution performance does not
+predict cross-generator performance.
+
+The UniversalFakeDetect benchmark introduced by Ojha et al.~\cite{ojha2023} extends the
+generator coverage to 21 architectures, including both GAN and diffusion models. It
+includes generators from both paradigms in the test set and is the benchmark on which
+the CLIP-based universal detector was evaluated. Its inclusion of diffusion models makes
+it the first benchmark to evaluate cross-paradigm generalisation systematically.
+
+This thesis uses three datasets that together provide cross-paradigm, multi-generator,
+and multi-real-source coverage. Dataset~A~\cite{rombach2022} is the ``AI vs.\
+Human-Generated Images'' Kaggle dataset: approximately 80,000 balanced images with Stable
+Diffusion~v1.5 as the AI source and Shutterstock stock photographs as the real source.
+Dataset~B is the Defactify Image Dataset, available on HuggingFace: 96,000 images from
+five diffusion-based generators (SD~2.1, SDXL, SD~3, DALL-E~3, MidJourney~v6) paired
+with MS-COCO natural photographs at a 1:5 real-to-AI imbalance. Metadata identifies
+which generator produced each AI image, enabling per-generator evaluation. Dataset~C~\cite{karras2019}
+is the ``140k Real and Fake Faces'' Kaggle dataset: 140,000 balanced images from
+StyleGAN~\cite{karras2019} paired with FFHQ portrait photographs.
+
+None of the three datasets was designed for cross-dataset evaluation. Each was
+constructed as an in-distribution benchmark for a specific generator or set of generators
+against a specific real-image source. This thesis repurposes them together for a different
+question: how well does a model trained on one dataset's joint distribution of real and AI
+images transfer to another dataset's distribution? The answer depends not only on the
+generator but also on the real-image source, a dependency that the cross-dataset matrix
+makes explicit.
+
+The choice of real-image source matters beyond academic convenience. Detectors deployed
+in practice encounter images from sources that differ from their training data in both
+generator and photographic subject matter. A model trained on studio portraits (FFHQ)
+may never have learned the low-level statistics of natural-scene photographs (MS-COCO)
+or stock images (Shutterstock); the resulting classifier may perform well on faces but
+produce high false-positive rates on landscapes, products, or social media snapshots
+where the real-image appearance differs substantially from training. Benchmark coverage
+that varies only the generator while holding the real-image source constant cannot expose
+this failure mode, because the real-class decision boundary is never tested outside its
+training distribution.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Cross-Dataset Generalisation}
+\label{sec:cross_dataset_generalisation}
 
-% Frame the generalisation problem formally.
-% Cite Wang 2020 and Ojha 2023 as the two most directly relevant prior works.
-% Explain what makes our study different: systematic multi-dataset progression,
-% two generation paradigms, per-generator analysis.
+The cross-dataset generalisation problem in AI image detection can be stated formally as
+follows. Let $\mathcal{D}_k = \{(x_i, y_i)\}$ denote a dataset where each image $x_i$
+is labelled $y_i \in \{\text{real}, \text{AI}\}$, with real images drawn from source
+distribution $p_k^{\text{real}}$ and AI images from generator $g_k$. A detector trained
+on $\mathcal{D}_{\text{train}}$ achieves in-distribution performance when evaluated on a
+held-out test set from the same distribution, and out-of-distribution (OOD) performance
+when evaluated on $\mathcal{D}_{\text{test}}$ where $p_{\text{test}}^{\text{real}} \neq
+p_{\text{train}}^{\text{real}}$ or $g_{\text{test}} \neq g_{\text{train}}$, or both.
+
+Wang et al.~\cite{wang2020} showed empirically that in-distribution performance does not
+predict OOD performance: CNNSpot achieves over 0.99 accuracy on ProGAN test images but
+collapses to near-random on images from other GAN architectures. The augmentation
+strategy they propose improves OOD performance modestly but does not close the gap. Their
+evaluation covers multiple generators but within a single paradigm (GANs) and a single
+real-image source (LSUN), which means the two sources of distribution shift, generator
+change and real-image source change, cannot be separated.
+
+Ojha et al.~\cite{ojha2023} address the cross-generator problem architecturally, replacing
+the fine-tuned CNN with a frozen CLIP backbone. Their results on 21 generators confirm
+that a general-purpose feature space generalises better across generators than a
+task-specific one. This approach targets the generator-shift component of OOD failure.
+
+This thesis targets the same problem through training corpus design rather than feature
+extractor design. The 3$\times$3 cross-dataset matrix covers both sources of distribution
+shift simultaneously: generator change and real-image source change, across two generation
+paradigms and three independent real-image sources. Prior benchmarks use a single
+real-image source, so any OOD degradation is attributed entirely to the generator even
+when the real-image shift is equally responsible; the matrix design here disentangles the
+two by varying each independently. The four-stage progression then isolates the
+contribution of each modification, establishing that real-image source diversity is the
+primary driver of OOD improvement. Table~\ref{tab:method_comparison} summarises all three
+approaches.
+
+\begin{table}[htb]
+  \centering
+  \caption{Comparison of three detection approaches along key evaluation dimensions.}
+  \label{tab:method_comparison}
+  \resizebox{\linewidth}{!}{%
+  \begin{tabular}{llll}
+    \hline
+    \textbf{Dimension} & \textbf{Wang~\cite{wang2020}} & \textbf{Ojha~\cite{ojha2023}} & \textbf{This thesis} \\
+    \hline
+    Feature extractor    & Fine-tuned ResNet    & Frozen CLIP ViT-L/14  & Fine-tuned ResNet \\
+    Training paradigm    & Supervised fine-tune & Nearest-neighbour     & Supervised fine-tune \\
+    Training generators  & 1 (ProGAN)           & 1 reference set       & 6 (diffusion + GAN) \\
+    Test generators      & 11 (GAN only)        & 21 (GAN + diffusion)  & 6 (diffusion + GAN) \\
+    Real-image sources   & 1 (LSUN)             & 1                     & 3 (Shutterstock, COCO, FFHQ) \\
+    Cross-paradigm eval  & No                   & Yes                   & Yes \\
+    Real-source ablation & No                   & No                    & Yes \\
+    \hline
+  \end{tabular}}
+\end{table}

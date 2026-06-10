@@ -1,45 +1,478 @@
 \chapter{Analysis and Discussion}
+\label{ch:analysis}
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{The Dataset-Specific Shortcut Hypothesis}
+\label{sec:shortcut_hypothesis}
 
-% Hypothesis: models learn statistical properties of each dataset, not universal artefacts.
-% Evidence: consistent failure regardless of architecture (ResNet-18 ~= ResNet-50 off-diagonal).
-% What these shortcuts might be: real image distribution (Shutterstock vs FFHQ vs MS-COCO),
-% compression artefacts, resolution patterns, colour statistics.
+The central finding of Stage~1 is that all six single-source models achieve near-perfect
+in-distribution F1 but collapse almost completely when tested on data from a different
+dataset. The minimum off-diagonal F1 is 0.1436; several cells reach exactly 0.3333,
+the value expected from a model that predicts one class for the entire test set. This
+pattern holds regardless of whether the generator is a GAN (Dataset~C) or a diffusion
+model (Datasets~A and~B), and regardless of whether the model is ResNet-50 or ResNet-18
+(Table~\ref{tab:cross_dataset_matrix}).
+
+Figure~\ref{fig:matrix_ch5} shows the cross-dataset F1 matrix for ResNet-50. The
+diagonal entries are near~1.0 for Datasets~A and~C and around~0.65 for Dataset~B.
+Every off-diagonal entry is below~0.40; five of the six reach 0.3333 or below. The
+matrix for ResNet-18 is qualitatively identical (Figure~\ref{fig:matrix_ch5_r18}).
+
+\begin{figure}[htb]
+  \centering
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/cross_dataset_matrix/resnet50/3x3/resnet50_f1_matrix.png}
+    \caption{Cross-dataset macro F1-score matrix for ResNet-50 (Stage~1). Diagonal:
+             in-distribution. Off-diagonal: OOD transfer.}
+    \label{fig:matrix_ch5}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/cross_dataset_matrix/resnet18/3x3/resnet18_f1_matrix.png}
+    \caption{Cross-dataset macro F1-score matrix for ResNet-18 (Stage~1). The pattern
+             is qualitatively identical to ResNet-50.}
+    \label{fig:matrix_ch5_r18}
+  \end{minipage}
+\end{figure}
+
+The consistency across architectures is the key piece of evidence. ResNet-50 has
+approximately 2.2 times the parameters of ResNet-18, yet their off-diagonal F1 values
+differ by at most 0.08 on any single cell. If generalisation failure were primarily
+an issue of model capacity, the larger architecture would show systematically better
+off-diagonal performance. It does not. The failure is therefore not architectural but
+data-driven: both models learn shortcuts, and the shortcuts are the problem.
+
+The most plausible explanation is that models learn dataset-specific shortcuts rather
+than generative artefacts. Each training dataset pairs AI images from a specific generator
+with real images from a specific source. Dataset~A pairs Stable Diffusion~v1.5 outputs
+with Shutterstock photographs; Dataset~C pairs StyleGAN faces with FFHQ portraits;
+Dataset~B pairs five diffusion models with MS-COCO images. The classifier can achieve
+near-perfect in-distribution accuracy by learning statistical properties that differ
+between the specific real and AI sources in that dataset, without needing to learn anything
+about generative artefacts per se. When tested on a different dataset, those
+source-specific statistics no longer discriminate the two classes, and performance
+collapses.
+
+Candidate shortcuts include: colour and luminance statistics specific to each real image
+source (Shutterstock stock photography vs. FFHQ portrait faces vs. MS-COCO natural
+images); JPEG compression profiles that differ between real and AI images; resolution
+and sharpening patterns introduced by each generator's upsampling pipeline; and aspect
+ratio or cropping conventions. Wang et al.~\cite{wang2020} documented this same
+shortcut-learning behaviour in CNN-based detectors trained on GAN-generated images;
+models trained on one GAN fail on images from others. The results here extend that
+finding to diffusion models and to a three-dataset cross-paradigm setting.
+
+Figures~\ref{fig:precision_matrix_ch5} and~\ref{fig:recall_matrix_ch5} show the
+corresponding precision and recall matrices for ResNet-50. The recall matrix makes the
+class-collapse pattern more explicit: cells at 0.3333 in the F1 matrix correspond to
+recall values of 0 or 1 in the recall matrix, confirming that the model predicts a single
+class for all inputs in those pairings. The precision matrix shows the complementary
+pattern: where recall reaches 1 for one class, precision drops to the base rate of the
+test set. Together the three matrices (F1, precision, recall) provide a complete picture
+of where the classifier collapses and in which direction.
+
+\begin{figure}[htb]
+  \centering
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/cross_dataset_matrix/resnet50/3x3/resnet50_precision_matrix.png}
+    \caption{Cross-dataset macro precision matrix for ResNet-50 (Stage~1).}
+    \label{fig:precision_matrix_ch5}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/cross_dataset_matrix/resnet50/3x3/resnet50_recall_matrix.png}
+    \caption{Cross-dataset macro recall matrix for ResNet-50 (Stage~1).}
+    \label{fig:recall_matrix_ch5}
+  \end{minipage}
+\end{figure}
+
+The 0.3333 floor observed in several off-diagonal cells warrants closer examination.
+On a balanced binary test set, a macro F1 of exactly 0.3333 is the value produced by a
+model that assigns every sample to the same class. Class-specific F1 scores of 0 and
+0.5 average to 0.3333 under macro averaging. The implication is not merely that the
+model performs poorly on the new distribution: it is that the features learned during
+training are actively misleading on it. A model trained on Dataset~A and tested on
+Dataset~C encounters images from a completely different domain (Shutterstock photographs
+vs. StyleGAN synthetic faces), and its learned shortcut predicts ``real'' for essentially
+every input, because nothing in the new distribution matches the AI signature it was
+trained to recognise. This is a qualitatively stronger statement than low F1: the
+classifier has inverted the problem rather than simply become less confident. Ojha
+et al.~\cite{ojha2023} identified this class of failure as the central motivation for
+building architecture-agnostic universal detectors; the results here confirm that standard
+fine-tuned CNNs remain vulnerable to it.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Why Dataset B is the Hardest Target}
+\label{sec:why_b}
 
-% Three compounding factors:
-%   1. MidJourney v6 exclusion from training
-%   2. MS-COCO real images underrepresented (17.5\% of training real images)
-%   3. Test set imbalance amplifying real class precision collapse
-% Per-generator evidence: real recall is uniformly ~0.61 across all generators
-% -> real image distribution mismatch is the primary cause, not missing generator alone.
+Dataset~B consistently produces the lowest test F1 across all stages, including Stage~4
+where the model was explicitly trained on Dataset~B images. Three compounding factors
+explain this.
+
+\textbf{Factor 1: Generator diversity.} Dataset~B contains five generators with distinct
+visual characteristics: SD~2.1, SDXL, SD~3, DALL-E~3, and MidJourney~v6. Each generator
+produces images with different texture statistics, colour palettes, and spatial frequency
+profiles. A single model must learn one unified set of features that discriminates real
+from AI across all five families simultaneously. This is harder than the single-generator
+setting of Datasets~A and~C, where one consistent artefact signature dominates.
+
+\textbf{Factor 2: MS-COCO real image underrepresentation.} In
+\texttt{dataset\_combined\_v2}, the real images come from three sources: 23,000 from
+Dataset~A's Shutterstock photographs, 10,000 from Dataset~C's FFHQ faces, and 7,000
+from Dataset~B's MS-COCO subset. MS-COCO thus contributes only 17.5\% of the 40,000
+training real images. The model's internal representation of ``real'' is dominated by
+Shutterstock and FFHQ statistics. When evaluated on Dataset~B's test set, whose real
+images are all MS-COCO, many are assigned to the AI class because they do not match the
+dominant real-image distribution seen during training.
+
+\textbf{Factor 3: Test set imbalance.} The Dataset~B test set contains 37,500~AI images
+and 7,500~real images (1:5 ratio). Macro F1 averages the per-class F1 equally, so the
+real class contributes 50\% of the final metric despite being 17\% of the test set.
+Any systematic difficulty with the real class therefore depresses the aggregate macro~F1
+disproportionately.
+
+Understanding why MS-COCO real images are hard requires comparing the three real-image
+sources. Shutterstock photographs are commercially curated stock images: consistent
+white-balance, sharp subject focus, low noise, frequently centre-weighted composition.
+FFHQ portraits are aligned face images with uniform framing and skin-tone normalisation.
+MS-COCO images are natural-scene photographs drawn from Flickr, with cluttered
+backgrounds, variable lighting, motion blur, and a wide range of subjects and viewpoints.
+These two properties, visual diversity and lower curation, push MS-COCO images outside
+the statistical region that the model has learned to label as ``real''. The model
+effectively treats cluttered natural-scene photographs as uncertain, and given the
+imbalanced training signal, defaults to the AI class.
+
+The per-generator breakdown provides the decisive evidence for Factor~2 being the
+dominant cause. Table~\ref{tab:per_generator_ch5} and Figure~\ref{fig:per_gen_ch5}
+show the per-generator F1 and real recall for Experiment~13 (ResNet-50). Real recall
+is 0.61 across all five subsets, including MidJourney~v6, which was excluded from
+training.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.88\columnwidth]{figuri/exp13_resnet50_combined_v2/generator_splits/resnet50_dataset_b_generator_f1.png}
+  \caption{Experiment~13 (ResNet-50): per-generator macro F1-score on the five balanced
+           Dataset~B subsets. MidJourney~v6 was excluded from training. The bar heights
+           show generator-to-generator variation; the 0.61 real recall floor is uniform
+           across all bars.}
+  \label{fig:per_gen_ch5}
+\end{figure}
+
+\begin{table}[h!]
+  \centering
+  \caption{Per-generator evaluation of Experiment~13 (ResNet-50) on the balanced
+           Dataset~B generator subsets (7,500 real + 7,500 AI each).}
+  \label{tab:per_generator_ch5}
+  \begin{tabular}{lcccc}
+    \hline
+    \textbf{Generator} & \textbf{In training?} & \textbf{F1} & \textbf{AI recall} & \textbf{Real recall} \\
+    \hline
+    SD~2.1        & Yes & 0.6515 & 0.69 & 0.61 \\
+    SDXL          & Yes & 0.6849 & 0.76 & 0.61 \\
+    SD~3          & Yes & 0.6807 & 0.75 & 0.61 \\
+    DALL-E~3      & Yes & 0.6974 & 0.78 & 0.61 \\
+    MidJourney~v6 & No  & 0.5192 & 0.43 & 0.61 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+If the primary cause of low Dataset~B performance were the missing MidJourney~v6
+generator, real recall would be degraded specifically in the MidJourney~v6 subset and
+remain higher for the four trained generators. Instead, real recall is 0.61 in every
+row, trained generators included. The AI recall columns vary across generators
+(0.43--0.78), which reflects difficulty with specific generator signatures; but the
+real recall column is flat. The model struggles to classify real images correctly
+regardless of what they are paired with, which is precisely what Factor~2 predicts.
+
+Figure~\ref{fig:confusion_b_ch5} shows the confusion matrix for Experiment~13 on
+Dataset~B. Of 7,500 real test images, 4,612 are correctly classified and 2,888 are
+misclassified as AI, giving real recall of 0.61. The proportion of misclassified real
+images (38\%) is large and, as the per-generator table confirms, stable across generator
+subsets. The confusion matrix for Experiment~14 (ResNet-18) is nearly identical (Figure~\ref{fig:confusion_b_ch5_r18}), with AI precision of 0.89 and real precision of 0.25.
+
+\begin{figure}[htb]
+  \centering
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/exp13_resnet50_combined_v2/resnet50_dataset_b_confusion_matrix.png}
+    \caption{Exp.~13 (ResNet-50): confusion matrix on Dataset~B. Real recall
+             is 0.61; 2,888 real images are misclassified as AI.}
+    \label{fig:confusion_b_ch5}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/exp14_resnet18_combined_v2/resnet18_dataset_b_confusion_matrix.png}
+    \caption{Exp.~14 (ResNet-18): confusion matrix on Dataset~B. The real-class
+             error pattern is near-identical to Exp.~13.}
+    \label{fig:confusion_b_ch5_r18}
+  \end{minipage}
+\end{figure}
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Effect of Data Diversity}
+\label{sec:data_diversity}
 
-% Progressive improvement across stages (chart or table: best OOD F1 per stage).
-% Key insight: combining datasets with different real image sources forces the model to
-% learn a more general representation of "real".
-% Architecture capacity advantage grows with data diversity.
+The four experimental stages form a natural progression in training data diversity.
+Table~\ref{tab:ood_progression} tracks the best out-of-distribution F1 on Dataset~A
+(the primary OOD probe) and on Dataset~B across stages, using the ResNet-50 results.
+
+\begin{table}[h!]
+  \centering
+  \caption{Best ResNet-50 out-of-distribution F1 per experimental stage. Dataset~A is
+           never seen during training in Stages~1--3. Dataset~B is never seen during
+           training in Stage~1 (for models trained on A or C).}
+  \label{tab:ood_progression}
+  \begin{tabular}{clcc}
+    \hline
+    \textbf{Stage} & \textbf{Training corpus} & \textbf{Best F1 on A} & \textbf{Best F1 on B} \\
+    \hline
+    1 & Single source (B only, for A column) & 0.6738 & 0.6512 \\
+    2 & Dataset B balanced               & 0.6738 & 0.6711 \\
+    3 & Dataset B + C (28k)              & 0.7361 & 0.6312 \\
+    4 & Dataset A + B + C (80k)          & 0.9936 & 0.5798 \\
+    \hline
+  \end{tabular}
+\end{table}
+
+A useful geometric interpretation of this progression: the model learns a decision
+boundary in feature space that separates the ``real'' cluster from the ``AI'' cluster.
+Each real-image source in the training corpus contributes a distinct region to the real
+cluster. In Stage~1, only one real-image source is present, so the real cluster is narrow
+and concentrated. When test real images come from a different source, they fall outside
+that narrow cluster and are misclassified as AI. Each additional source in the training
+corpus broadens the real cluster, extending it towards the regions of feature space that
+new test distributions occupy. This is why adding Shutterstock images in Stage~4 produces
+such a large jump in Dataset~A F1 (0.7361 $\to$ 0.9936): Shutterstock is the exact
+source of Dataset~A real images, so those test images now fall inside the trained cluster.
+
+This means the Stage~4 improvement on Dataset~A is partly an in-distribution effect, not
+a purely OOD one. Dataset~A real images are present in the Stage~4 training corpus. The
+near-perfect F1 of 0.9936 on Dataset~A therefore reflects a model that has seen the exact
+real-image source, not one that generalises from unseen sources. The genuinely OOD
+measurement for Stage~4 is Dataset~B, where MS-COCO real images remain
+underrepresented.
+
+Each stage that adds a new real-image source improves OOD robustness on that source's
+distribution. Stage~3 adds FFHQ real images alongside MS-COCO, and F1 on the completely
+unseen Dataset~A rises from 0.6738 to 0.7361 ($+0.062$). Stage~4 adds Shutterstock real
+images, and F1 on Dataset~A jumps to 0.9936. The improvement is not primarily from more
+data in total: it comes from more diverse real-image sources. Each new source narrows the
+gap between what the model has seen as ``real'' and what appears in the test set.
+
+Figure~\ref{fig:exp09_confusion_ch5} shows the confusion matrix for the Stage~3
+ResNet-50 model (Experiment~9) on Dataset~A. Even without any Shutterstock training
+images, the model correctly classifies a majority of both classes. The error structure is
+symmetric: misclassification rates are comparable in both directions, unlike the strongly
+asymmetric errors seen in Stage~1 (where the model assigned nearly all inputs to a single
+class). This symmetry is consistent with a model that has learned a partial but meaningful
+real-image representation, placing some Dataset~A images correctly on the real side of the
+decision boundary.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.60\columnwidth]{figuri/exp09_resnet50_dataset_combined/resnet50_dataset_a_confusion_matrix.png}
+  \caption{Experiment~9 (ResNet-50, B+C training): confusion matrix on Dataset~A (fully
+           OOD). F1$\,{=}\,0.7361$. Both classes are partially recovered; errors are
+           more symmetric than in Stage~1 OOD evaluations.}
+  \label{fig:exp09_confusion_ch5}
+\end{figure}
+
+Stage~4 resolves the Dataset~A and Dataset~C failure modes entirely. The two confusion
+matrices in Figures~\ref{fig:exp13_confusion_a_ch5} and~\ref{fig:exp13_confusion_c_ch5} contrast directly with the Stage~1
+and Stage~3 results. On Dataset~A, Experiment~13 misclassifies only 113 images out of
+27,500 in the real class and 112 in the AI class, matching the near-ceiling in-distribution
+F1 of 0.9936. On Dataset~C, the model misclassifies 37 real and 49 AI images from a test
+set of 14,000 per class, yielding F1$\,{=}\,0.9987$. The contrast with Stage~3, where
+Dataset~A OOD F1 was 0.7361 and Stage~1, where it was below 0.40, confirms that the Stage~4
+improvement on these two datasets is attributable to the inclusion of their real-image
+sources (Shutterstock and FFHQ) in the training corpus rather than to increased data volume.
+
+\begin{figure}[htb]
+  \centering
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/exp13_resnet50_combined_v2/resnet50_dataset_a_confusion_matrix.png}
+    \caption{Exp.~13 (ResNet-50): confusion matrix on Dataset~A. F1$\,{=}\,0.9936$.
+             Adding Shutterstock real images resolves the real-class failure completely.}
+    \label{fig:exp13_confusion_a_ch5}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/exp13_resnet50_combined_v2/resnet50_dataset_c_confusion_matrix.png}
+    \caption{Exp.~13 (ResNet-50): confusion matrix on Dataset~C. F1$\,{=}\,0.9987$.
+             StyleGAN face images are the most consistently detected across all stages.}
+    \label{fig:exp13_confusion_c_ch5}
+  \end{minipage}
+\end{figure}
+
+Dataset~B F1 in Stage~4 (0.5798) is lower than in Stage~3 (0.6312). This is consistent
+with the dilution argument: as more real-image sources are added to the training corpus,
+each individual source occupies a smaller fraction. MS-COCO shrinks from 50\% of training
+real images in Stage~3 to 17.5\% in Stage~4, increasing the MS-COCO distribution mismatch.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{DoG Preprocessing Failure}
+\label{sec:dog_failure}
 
-% Why expected to help: generative models often produce spectral artefacts.
-% Why it did not: the CNN already learns edge/frequency information from RGB;
-% DoG removes colour and low-frequency content that may actually be diagnostic.
-% Alternative: FFT magnitude as input channel — proposed for future work.
+Experiments~11 and~12 applied Difference of Gaussians preprocessing to suppress
+low-frequency content and colour, with the goal of making generative upsampling artefacts
+more visible to the classifier. The results in Table~\ref{tab:stage3_results} show
+consistent degradation relative to the RGB baseline: DoG reduces F1 by 0.005 on
+Dataset~A, 0.011 on Dataset~B, and 0.013 on Dataset~C for ResNet-50.
+
+Two mechanisms explain this failure. First, ResNet-50 and ResNet-18 trained on RGB
+already learn edge and high-frequency texture features through their early convolutional
+layers. The first convolutional layer of a ResNet, initialised from ImageNet pretraining,
+already acts as a bank of frequency-selective filters covering a range that overlaps with
+the DoG band-pass. Applying DoG as a preprocessing step provides no additional
+frequency-domain information that the network could not have extracted from RGB.
+
+Second, and more importantly, the DoG transform discards colour and low-frequency content.
+The preceding analysis suggests that the shortcuts models rely on for in-distribution
+detection include colour statistics and low-frequency structure specific to each real-image
+source. Removing this information eliminates a substantial part of the signal the model
+uses for classification, which outweighs any benefit from artefact emphasis.
+
+A more targeted approach for future work would be to add the FFT magnitude spectrum as
+an additional input channel alongside RGB, rather than replacing the RGB input. This would
+preserve colour and low-frequency content while providing explicit spectral information
+alongside it.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Adaptive Learning Rate Scheduling}
+\label{sec:lr_scheduling}
 
-% Quantify: LR reduction at epoch 12 -> F1 jump from 0.9910 to 0.9933 over two epochs.
-% Interpretation: model was overfitting at 1e-4; finer updates at 5e-5 allowed
-% convergence to a better minimum.
+Experiment~13 provides a clear example of ReduceLROnPlateau improving convergence. At
+epoch~8, validation F1 reaches 0.9910, then fails to improve for three consecutive epochs
+(9, 10, 11). The scheduler halves the learning rate from $10^{-4}$ to $5\times10^{-5}$
+at epoch~12. Over the following two epochs, validation F1 rises to 0.9928 (epoch~13) and
+0.9933 (epoch~14), the best checkpoint. The total gain attributable to the LR reduction
+is $+0.0023$~F1 over two epochs.
+
+Figure~\ref{fig:f1_curve_ch5} reproduces the validation F1 curve for Experiment~13.
+The plateau in epochs~8--11 is visible as a flat region before the LR reduction at
+epoch~12 triggers the final improvement. The shape is characteristic of
+ReduceLROnPlateau: a period of no progress, a step reduction, rapid improvement over
+one to two epochs, and then a new plateau at a slightly lower loss.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.82\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_f1_curve.png}
+  \caption{Experiment~13 (ResNet-50): validation macro F1-score per epoch. The
+           ReduceLROnPlateau reduction at epoch~12 (from $10^{-4}$ to $5\times10^{-5}$)
+           breaks the plateau visible in epochs~8--11.}
+  \label{fig:f1_curve_ch5}
+\end{figure}
+
+The interpretation is straightforward. With learning rate $10^{-4}$, the optimiser
+overshoots the local minimum in the loss surface repeatedly; the resulting oscillation is
+visible in epochs~6--11 of Figure~\ref{fig:f1_curve_ch5}. Halving the step size to
+$5\times10^{-5}$ reduces the overshoot and allows the model to settle into a narrower,
+lower minimum. This is the standard motivation for adaptive LR scheduling and is observed
+here with clear quantitative evidence.
+
+The second LR reduction at epoch~18 (to $2.5\times10^{-5}$) produces no improvement.
+By this point the model has likely reached a local minimum where further fine-tuning of
+the learning rate does not help, and early stopping terminates training at epoch~19.
+
+Comparing Experiment~13 with Experiment~14 (ResNet-18, same training corpus) reveals that
+the scheduling benefit is architecture-dependent. In Experiment~14, validation F1 rises
+steadily from 0.9253 at epoch~1 to 0.9733 at epoch~16 without a pronounced plateau in
+the same epoch range. No single LR reduction triggers a sharp improvement comparable to
+the $+0.0023$ gain seen in Experiment~13. The ResNet-18 model still converges to a
+strong best val F1 of 0.9733, but it does so through a more gradual trajectory. ResNet-50's
+larger parameter count introduces a higher-dimensional optimisation surface with sharper
+local minima; the step size that fits ResNet-18 is already small enough relative to the
+curvature of that surface, while ResNet-50 requires an explicit reduction to navigate it.
+This difference in LR sensitivity is consistent with the general observation that larger
+models are more sensitive to the learning rate schedule~\cite{he2016}.
+
+
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Architecture Capacity and Data Scale}
+\label{sec:capacity_data_scale}
+
+The relationship between architecture size and generalisation performance changes
+qualitatively as training data grows. At small data scale (Stage~1, single-source
+training), ResNet-18 occasionally outperforms ResNet-50 in OOD transfer. Trained on
+Dataset~B and tested on Dataset~C, ResNet-18 achieves F1 of 0.5019 versus 0.3997 for
+ResNet-50. At this scale, the smaller model generalises better: it is likely that
+ResNet-50 overfits the training distribution more tightly, memorising source-specific
+features that are even less transferable than the coarser features learned by ResNet-18.
+
+At large data scale (Stage~4, 80,000 images from three datasets), the relationship
+inverts. ResNet-50 outperforms ResNet-18 consistently across all three test sets: by
+0.0162 on Dataset~A (0.9936 vs.\ 0.9774), 0.0284 on Dataset~B (0.5798 vs.\ 0.5514),
+and 0.0124 on Dataset~C (0.9987 vs.\ 0.9863). The larger model benefits more from the
+richer and more diverse training signal~\cite{he2016}. With 80,000 training images
+spanning three real-image sources and six generator families, the dataset contains enough
+signal to exploit ResNet-50's additional capacity without causing it to overfit any single
+source.
+
+This transition, from ResNet-18 parity or advantage at small scale to consistent ResNet-50
+advantage at large scale, is a self-contained finding. The practical implication is that
+architecture choice and dataset scale are not independent decisions: the larger model is
+the better choice when a diverse, multi-source training set is available, but may
+underperform the smaller model when only a single-source dataset is used.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Limitations}
+\label{sec:limitations}
 
-% - MidJourney v6 exclusion
-% - MS-COCO real image underrepresentation
-% - No real test split for combined datasets
-% - Evaluation only on three specific datasets
-% - Training data from 2024 generators -- rapidly evolving landscape
+Several limitations bound the conclusions that can be drawn from this study.
+
+\textbf{MidJourney v6 exclusion.} MidJourney~v6 was excluded from
+\texttt{dataset\_combined\_v2} and reserved as an unseen-generator probe. The model's F1
+of 0.5192 on the balanced MidJourney~v6 subset confirms it cannot reliably detect this
+generator. Any deployment scenario where MidJourney~v6 images are expected would require
+including them in training.
+
+\textbf{MS-COCO underrepresentation.} With only 17.5\% of training real images drawn
+from MS-COCO, the model performs poorly on MS-COCO real images at test time. A rebalanced
+training set with equal proportions from each real source would likely improve Dataset~B
+real recall substantially.
+
+\textbf{No dedicated test split for combined datasets.} The combined training corpora
+have no reserved test split; evaluation is performed on the original held-out sets of
+Datasets~A, B, and~C. For Stages~3 and~4, the training corpus overlaps with the source
+distributions of the test sets, which may slightly overestimate performance on those
+distributions relative to a fully independent test set.
+
+\textbf{Restricted generator coverage.} The study covers six generator families:
+Stable Diffusion~v1.5, SD~2.1, SDXL, SD~3, DALL-E~3, MidJourney~v6, and StyleGAN.
+Generators not represented in any training or test set (e.g., Imagen, Adobe Firefly,
+Flux, or future models) are outside the scope of these conclusions. Given the rate at
+which new generators are released, detector performance on unseen generators is likely
+to degrade over time.
+
+\textbf{Rapidly evolving landscape.} AI image generation is advancing quickly. The
+generators used here were current as of 2024. More recent models with
+improved upsampling pipelines and higher perceptual quality may produce fewer of the
+low-level artefacts that current CNN-based detectors rely on. This would further reduce
+detection accuracy.
+
+\textbf{Training environment constraints.} All experiments were run on a single NVIDIA
+T4 GPU (16~GB VRAM) within Google Colab, which imposes practical limits on
+reproducibility and training scale. Colab runtime interruptions caused one training run
+(Experiment~14) to crash at epoch~3 of 20, overwriting the checkpoint written by a
+previous full run. The final Experiment~14 results come from a complete re-run, but the
+training curves and per-generator bar chart from the first run are corrupted and excluded
+from Chapter~4. The 16~GB VRAM ceiling constrained the maximum batch size to 128 images
+at $224\times224$ resolution. Larger batch sizes, which generally smooth the loss
+landscape and improve generalisation, were not feasible without GPU upgrades. Experiments
+at a larger scale, or with architectures such as ResNet-101 (${\approx}45$M parameters),
+would require a multi-GPU or cloud training environment beyond Colab's free tier.

@@ -1,23 +1,155 @@
 \chapter{Conclusions}
+\label{ch:conclusions}
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Summary of Findings}
+\label{sec:summary}
 
-% 1. Cross-dataset generalisation failure is systematic and near-complete for single-source models.
-% 2. Data diversity is the primary driver of robustness -- more than architecture choice.
-% 3. DoG preprocessing does not improve over raw RGB.
-% 4. Dataset B performance is limited by a compound cause, not a single factor.
+\textbf{Cross-dataset generalisation failure is systematic for single-source models.}
+All six single-source models in Stage~1 achieve near-perfect in-distribution macro F1
+(above 0.99 for Datasets~A and~C, 0.65 for Dataset~B) but collapse when tested on images
+from a different dataset. The minimum off-diagonal macro F1 in the cross-dataset matrix is
+0.1436; several cells reach exactly 0.3333, the value produced by a classifier that assigns
+every input to a single class. The failure is consistent across both architectures
+(ResNet-50 and ResNet-18) and both generation paradigms (diffusion and GAN). Because
+near-identical failure occurs in a model with 2.2 times more parameters, architecture
+capacity is not the primary cause. The evidence points instead to dataset-level shortcut
+learning: models learn statistical properties specific to their training dataset rather
+than generator artefacts that transfer across datasets.
+
+\textbf{Data diversity is the primary driver of out-of-distribution robustness.}
+The best single-source model achieves F1 of 0.6738 on the completely unseen Dataset~A
+(trained on Dataset~B). Adding Dataset~C to the training corpus raises this to 0.7361 in
+Stage~3. Including Dataset~A in the Stage~4 corpus brings it to 0.9936. Each improvement
+correlates with the addition of a new real-image source, not with total data volume.
+The Stage~4 combined corpus, 80,000 images from three real-image sources and six generator
+families, produces near-perfect detection on Datasets~A and~C (F1 of 0.9936 and 0.9987
+for ResNet-50). At this data scale, the ResNet-50 advantage over ResNet-18 grows to
+0.016--0.028~F1 across all three test sets, while at small data scale the two architectures
+are near-parity or even inverted. Architecture choice and training data composition are
+therefore not independent: larger models benefit most when the training corpus is
+sufficiently large and diverse.
+
+\textbf{Difference of Gaussians preprocessing does not improve detection.}
+Experiments~11 and~12 tested DoG preprocessing as a means to expose generative upsampling
+artefacts by suppressing low-frequency content and colour. The results show consistent
+degradation relative to the RGB baseline: ResNet-50 loses 0.005~F1 on Dataset~A, 0.011
+on Dataset~B, and 0.013 on Dataset~C. Two mechanisms explain this. First, ResNet layers
+initialised from ImageNet already function as frequency-selective filters that capture the
+high-frequency information DoG is intended to expose. Second, the DoG transform discards
+colour and low-frequency content that models rely on for in-distribution detection. The
+net effect is negative.
+
+\textbf{Dataset~B performance is limited by three compounding factors, not one.}
+The best macro F1 on the Dataset~B test set is 0.5798 (ResNet-50, Experiment~13). Three
+factors compound: five diffusion generators with distinct visual characteristics; MS-COCO
+real images contributing only 17.5\% of Stage~4 training real images, versus 57.5\%
+Shutterstock and 25\% FFHQ; and a 1:5 real-to-AI test set imbalance that amplifies real
+class errors in the macro metric. The per-generator breakdown isolates the second factor
+as the dominant cause: real recall is 0.61 across all five generator subsets, including
+MidJourney~v6, which was excluded from training. If the missing generator were the primary
+cause, only the MidJourney~v6 subset would show degraded real recall. The uniformly flat
+0.61 across all five subsets points to a systematic misclassification of MS-COCO real
+images, independent of which AI generator they are paired with.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Contributions}
+\label{sec:contributions}
 
-% - Systematic quantification of cross-dataset failure across two generation paradigms
-% - Multi-stage training progression showing the path from failure to robust detection
-% - Per-generator breakdown methodology (metadata CSV filtering approach)
-% - dataset\_combined\_v2: a balanced 80k-image multi-paradigm training corpus
+\textbf{Quantitative 3$\times$3 cross-dataset generalisation matrix across two generation
+paradigms.} The matrix covers all nine combinations of training and test dataset for both
+ResNet-50 and ResNet-18, spanning diffusion-model and GAN generation paradigms. It
+establishes that off-diagonal failure is not architecture-specific or paradigm-specific:
+every off-diagonal cell falls substantially below the corresponding in-distribution value,
+with the worst reaching 0.1436. This structure of the matrix constitutes direct
+quantitative evidence for the dataset-specific shortcut hypothesis.
+
+\textbf{Multi-stage training progression from failure to robust detection.} The
+four-stage experimental design isolates the effect of each modification to the training
+corpus and configuration. The progression from single-source training in Stage~1 through
+balanced Dataset~B in Stage~2, combined B+C with DoG ablation in Stage~3, and the full
+A+B+C corpus with advanced regularisation in Stage~4 traces a causal path from near-total
+OOD failure to near-perfect in-distribution detection. The dominant factor in each
+stage transition is the introduction of a new real-image source, rather than additional
+AI-image volume or architecture change.
+
+\textbf{Per-generator breakdown of Dataset~B failure.} The per-generator evaluation
+uses the metadata CSV that accompanies Dataset~B to partition the test split by generator
+label, computing F1 and per-class recall for each of the five generator subsets
+independently. This methodology makes the uniform real recall pattern visible: aggregate
+Dataset~B F1 of 0.5798 does not reveal that real recall is identically 0.61 across all
+five subsets. The approach is directly applicable to any multi-generator benchmark with
+per-sample provenance metadata and provides a cleaner diagnostic than aggregate metrics
+alone.
+
+\textbf{\texttt{dataset\_combined\_v2} training corpus.} The 80,000-image corpus
+constructed for Experiments~13 and~14 draws from three real-image sources (Shutterstock,
+FFHQ, MS-COCO) and six AI generator families across two paradigms. The real and AI
+subsets are balanced at 40,000 each. MidJourney~v6 is withheld from training and
+evaluated as an unseen-generator probe. The construction, including the semantic pairing
+of Dataset~B real and AI images by MS-COCO caption and the proportional sampling from
+each source, is described in Chapter~3 and in the code listed in the appendix.
+
+% ─────────────────────────────────────────────────────────────────────────────
 
 \section{Future Work}
+\label{sec:future_work}
 
-% - Include MidJourney v6 in training and increase MS-COCO real proportion
-% - Train ResNet-101 on dataset\_combined\_v2 to assess effect of additional capacity
-% - Investigate ensemble/stacked models for improved cross-generator robustness
-% - Frequency domain input (FFT magnitude) as a third channel alongside RGB
-% - A fourth dataset based on DiT-generated images (different diffusion architecture)
+\textbf{Rebalancing the MS-COCO real-image proportion.} The most direct improvement
+available for Dataset~B performance is to increase the MS-COCO contribution to the
+combined training corpus. At 17.5\% of training real images, MS-COCO is substantially
+underrepresented relative to its weight in the Dataset~B test set, where all 7,500 real
+images are MS-COCO. Raising the MS-COCO proportion to 40\% (from 7,000 to approximately
+16,000 real images), matched by a corresponding increase in Dataset~B AI images to
+maintain class balance, would address the real-image distribution mismatch directly.
+This rebalancing is expected to raise real recall from the current 0.61 ceiling; the
+per-generator analysis shows no generator-specific floor on real recall, so the uniform
+0.61 is a training-corpus artefact rather than an intrinsic difficulty. Including
+MidJourney~v6 in training is a secondary improvement: AI recall on the MidJourney~v6
+subset (0.43) is the only generator-specific metric substantially below the
+trained-generator range (0.69--0.78). Adding approximately 1,750 MidJourney~v6 training
+images (matching the per-generator count of the four included generators) would likely
+close this gap without requiring a full corpus reconstruction.
+
+\textbf{Scaling to larger architectures.} ResNet-50 outperforms ResNet-18 on the
+combined training corpus by a consistent margin: 0.0162 on Dataset~A, 0.0284 on
+Dataset~B, and 0.0124 on Dataset~C. At small data scale (Stage~1), this margin was absent
+or inverted, with ResNet-18 achieving F1 of 0.5019 on Dataset~C OOD versus 0.3997 for
+ResNet-50. The reversal at large scale suggests that the capacity advantage follows a
+data-scale interaction rather than a simple monotonic relationship. Training ResNet-101
+(${\approx}45$M parameters) on \texttt{dataset\_combined\_v2} under identical
+hyperparameters would test whether the Dataset~B F1 continues to rise above 0.5798. If
+it does, architecture scaling is a viable path alongside corpus rebalancing. If
+ResNet-101 plateaus near the ResNet-50 result, the implication is that model capacity is
+not the binding constraint at this data scale and that training corpus improvements would
+have greater impact than additional parameters.
+
+\textbf{Frequency-domain input.} The DoG experiments established that replacing RGB with
+a band-pass representation is harmful: F1 dropped by 0.005 on Dataset~A, 0.011 on
+Dataset~B, and 0.013 on Dataset~C for ResNet-50. A less destructive alternative is to
+append the FFT magnitude spectrum as an additional fourth input channel alongside the
+three RGB channels, rather than replacing them. This preserves all colour and
+low-frequency information while making spectral structure explicitly available. Generative
+models that use latent-space upsampling grids produce periodic spectral peaks at
+frequencies determined by the upsampling stride; a fourth FFT channel exposes these peaks
+directly without requiring the first convolutional layer to infer them from RGB. The key
+distinction from DoG is that the classifier can learn to ignore the FFT channel if RGB
+features are more discriminative, but cannot recover information that DoG has already
+discarded. An ablation comparing RGB~(3~ch), RGB+FFT~(4~ch), and DoG~(3~ch) would
+quantify the benefit precisely.
+
+\textbf{Additional generation paradigms.} The current corpus covers the diffusion and GAN
+paradigms across six generator families. Diffusion Transformer (DiT) architectures,
+including the denoising transformer backbone used in Stable Diffusion~3 and several
+recent open-source models, represent a third architectural family whose low-level artefact
+profile differs from both U-Net-based diffusion and GAN upsampling. Adding a DiT-only
+dataset, pairing its outputs with a held-out real-image source not already in
+\texttt{dataset\_combined\_v2}, would test whether the multi-source approach extends to
+a third paradigm without degrading performance on the existing two. Beyond paradigm
+coverage, any fixed training corpus becomes stale as new generators are released. A
+practical deployment pipeline would require monitoring per-generator F1 metrics on
+incoming data, triggering retraining when any generator's performance drops below a
+threshold, and maintaining a rolling corpus that incorporates recent generator outputs
+alongside the historical training data.

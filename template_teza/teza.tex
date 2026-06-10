@@ -14,8 +14,11 @@
   linktocpage]{hyperref}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage[section]{placeins}
 
 \singlespacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.6em}
 
 % ── Code listing style ──────────────────────────────────────────────────────
 \usepackage{listings}
@@ -39,7 +42,19 @@
     showspaces=false,
     showstringspaces=false,
     showtabs=false,
-    tabsize=2
+    tabsize=2,
+    extendedchars=true,
+    literate=
+      {→}{{$\rightarrow$}}{1}
+      {←}{{$\leftarrow$}}{1}
+      {×}{{$\times$}}{1}
+      {σ}{{$\sigma$}}{1}
+      {─}{{-}}{1}
+      {│}{{|}}{1}
+      {┌}{{+}}{1}
+      {═}{{=}}{1}
+      {★}{{*}}{1}
+      {—}{{-{}-}}{1}
 }
 \lstset{style=mystyle}
 % ────────────────────────────────────────────────────────────────────────────
@@ -85,7 +100,7 @@
   ReLU    = Rectified Linear Unit \\
   BN      = Batch Normalisation \\
   GPU     = Graphics Processing Unit \\
-  ImageNet = Large Scale Visual Recognition Challenge Dataset \\
+  ImageNet = Large-scale image recognition benchmark dataset \\
 }
 \afterpreface
 
