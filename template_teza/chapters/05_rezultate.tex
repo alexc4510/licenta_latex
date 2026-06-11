@@ -7,8 +7,8 @@
 \label{sec:shortcut_hypothesis}
 
 The central finding of Stage~1 is that all six single-source models achieve near-perfect
-in-distribution F1 but collapse almost completely when tested on data from a different
-dataset. The minimum off-diagonal F1 is 0.1436; several cells reach exactly 0.3333,
+in-distribution F1-score, but collapse almost completely when tested on data from a different
+dataset. The minimum off-diagonal F1 is 0.1436 and two cells reach $\approx 0.33$,
 the value expected from a model that predicts one class for the entire test set. This
 pattern holds regardless of whether the generator is a GAN (Dataset~C) or a diffusion
 model (Datasets~A and~B), and regardless of whether the model is ResNet-50 or ResNet-18
@@ -16,8 +16,11 @@ model (Datasets~A and~B), and regardless of whether the model is ResNet-50 or Re
 
 Figure~\ref{fig:matrix_ch5} shows the cross-dataset F1 matrix for ResNet-50. The
 diagonal entries are near~1.0 for Datasets~A and~C and around~0.65 for Dataset~B.
-Every off-diagonal entry is below~0.40; five of the six reach 0.3333 or below. The
-matrix for ResNet-18 is qualitatively identical (Figure~\ref{fig:matrix_ch5_r18}).
+Five of the six off-diagonal cells are below~0.40, except for the model trained on
+Dataset~B and tested on Dataset~A. The matrix for ResNet-18 presents more hopeful
+results (Figure~\ref{fig:matrix_ch5_r18}).
+
+
 
 \begin{figure}[htb]
   \centering
@@ -40,39 +43,42 @@ matrix for ResNet-18 is qualitatively identical (Figure~\ref{fig:matrix_ch5_r18}
 
 The consistency across architectures is the key piece of evidence. ResNet-50 has
 approximately 2.2 times the parameters of ResNet-18, yet their off-diagonal F1 values
-differ by at most 0.08 on any single cell. If generalisation failure were primarily
+do not differ by a large margin. If generalisation failure were primarily
 an issue of model capacity, the larger architecture would show systematically better
-off-diagonal performance. It does not. The failure is therefore not architectural but
+off-diagonal performance. It does not show a considerable one. The failure is therefore not architectural but
 data-driven: both models learn shortcuts, and the shortcuts are the problem.
 
-The most plausible explanation is that models learn dataset-specific shortcuts rather
+The most plausible explanation is that models learn dataset-specific shortcuts~\cite{geirhos2020shortcut}, rather
 than generative artefacts. Each training dataset pairs AI images from a specific generator
 with real images from a specific source. Dataset~A pairs Stable Diffusion~v1.5 outputs
 with Shutterstock photographs; Dataset~C pairs StyleGAN faces with FFHQ portraits;
 Dataset~B pairs five diffusion models with MS-COCO images. The classifier can achieve
 near-perfect in-distribution accuracy by learning statistical properties that differ
 between the specific real and AI sources in that dataset, without needing to learn anything
-about generative artefacts per se. When tested on a different dataset, those
-source-specific statistics no longer discriminate the two classes, and performance
+about generative artefacts as such. When tested on a different dataset, those
+source-specific statistics no longer discriminate the two classes and performance
 collapses.
 
 Candidate shortcuts include: colour and luminance statistics specific to each real image
 source (Shutterstock stock photography vs. FFHQ portrait faces vs. MS-COCO natural
-images); JPEG compression profiles that differ between real and AI images; resolution
-and sharpening patterns introduced by each generator's upsampling pipeline; and aspect
+images), JPEG compression profiles that differ between real and AI images, resolution
+and sharpening patterns introduced by each generator's upsampling pipeline and aspect
 ratio or cropping conventions. Wang et al.~\cite{wang2020} documented this same
-shortcut-learning behaviour in CNN-based detectors trained on GAN-generated images;
+shortcut-learning behaviour in CNN-based detectors trained on GAN-generated images, where
 models trained on one GAN fail on images from others. The results here extend that
 finding to diffusion models and to a three-dataset cross-paradigm setting.
 
 Figures~\ref{fig:precision_matrix_ch5} and~\ref{fig:recall_matrix_ch5} show the
-corresponding precision and recall matrices for ResNet-50. The recall matrix makes the
-class-collapse pattern more explicit: cells at 0.3333 in the F1 matrix correspond to
-recall values of 0 or 1 in the recall matrix, confirming that the model predicts a single
-class for all inputs in those pairings. The precision matrix shows the complementary
-pattern: where recall reaches 1 for one class, precision drops to the base rate of the
-test set. Together the three matrices (F1, precision, recall) provide a complete picture
-of where the classifier collapses and in which direction.
+corresponding precision and recall matrices for ResNet-50. The recall matrix is
+consistent with single-class prediction: when a model assigns every input to one class
+on a balanced test set, one class achieves recall 1.0 and the other achieves 0.0, so
+macro recall averages to 0.50. The cells with F1~$\approx 0.33$ all show macro recall near
+0.50 (0.4927--0.5000), confirming the collapse interpretation. The precision matrix
+shows values near 0.25 for those same cells: predicting a single class on a balanced
+binary set gives precision 0.50 for the predicted class and undefined for the other,
+averaging to approximately 0.25 under macro averaging. Together the three matrices
+(F1, precision, recall) provide a complete picture of where the classifier collapses
+and in which direction.
 
 \begin{figure}[htb]
   \centering
@@ -91,10 +97,12 @@ of where the classifier collapses and in which direction.
   \end{minipage}
 \end{figure}
 
-The 0.3333 floor observed in several off-diagonal cells warrants closer examination.
-On a balanced binary test set, a macro F1 of exactly 0.3333 is the value produced by a
-model that assigns every sample to the same class. Class-specific F1 scores of 0 and
-0.5 average to 0.3333 under macro averaging. The implication is not merely that the
+The $\approx 0.33$ floor observed in two off-diagonal cells (A$\rightarrow$C for both
+architectures) requires closer examination. On a balanced binary test set, a macro F1
+of $\approx 0.33$ is produced by a model that assigns every sample to the same class:
+the predicted class achieves F1 $= 2/3$ (precision $= 0.5$, recall $= 1.0$), while the
+unpredicted class achieves F1 $= 0$, and their macro average is $(2/3 + 0)/2 = 1/3$. 
+The implication is not merely that the
 model performs poorly on the new distribution: it is that the features learned during
 training are actively misleading on it. A model trained on Dataset~A and tested on
 Dataset~C encounters images from a completely different domain (Shutterstock photographs
@@ -103,7 +111,7 @@ every input, because nothing in the new distribution matches the AI signature it
 trained to recognise. This is a qualitatively stronger statement than low F1: the
 classifier has inverted the problem rather than simply become less confident. Ojha
 et al.~\cite{ojha2023} identified this class of failure as the central motivation for
-building architecture-agnostic universal detectors; the results here confirm that standard
+building architecture-agnostic universal detectors. The results here confirm that standard
 fine-tuned CNNs remain vulnerable to it.
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -198,21 +206,45 @@ subsets. The confusion matrix for Experiment~14 (ResNet-18) is nearly identical 
 
 \begin{figure}[htb]
   \centering
-  \begin{minipage}{0.48\columnwidth}
-    \centering
-    \includegraphics[width=\linewidth]{figuri/exp13_resnet50_combined_v2/resnet50_dataset_b_confusion_matrix.png}
-    \caption{Exp.~13 (ResNet-50): confusion matrix on Dataset~B. Real recall
-             is 0.61; 2,888 real images are misclassified as AI.}
-    \label{fig:confusion_b_ch5}
-  \end{minipage}
-  \hfill
-  \begin{minipage}{0.48\columnwidth}
-    \centering
-    \includegraphics[width=\linewidth]{figuri/exp14_resnet18_combined_v2/resnet18_dataset_b_confusion_matrix.png}
-    \caption{Exp.~14 (ResNet-18): confusion matrix on Dataset~B. The real-class
-             error pattern is near-identical to Exp.~13.}
-    \label{fig:confusion_b_ch5_r18}
-  \end{minipage}
+  \includegraphics[width=0.65\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_dataset_b_confusion_matrix.png}
+  \caption{Exp.~13 (ResNet-50): confusion matrix on Dataset~B}
+  \label{fig:confusion_b_ch5}
+\end{figure}
+
+\vspace{\baselineskip}
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.65\columnwidth]{figuri/exp14_resnet18_combined_v2/resnet18_dataset_b_confusion_matrix.png}
+  \caption{Exp.~14 (ResNet-18): confusion matrix on Dataset~B}
+  \label{fig:confusion_b_ch5_r18}
+\end{figure}
+
+
+Figures~\ref{fig:misclassified_ai} and~\ref{fig:misclassified_real} show representative
+high-confidence errors from both directions on Dataset~B (Experiment~13, ResNet-50).
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.85\columnwidth]{figuri/misclassified_images/ai_images_classified_as_real/ai_classified_as_real.png}
+  \caption[AI images misclassified as real (Exp.~13, Dataset~B).]{AI-generated images
+           misclassified as real by Experiment~13 (ResNet-50) on Dataset~B. These
+           diffusion outputs lack the periodic spectral artefacts characteristic of
+           earlier GAN architectures and are visually indistinguishable from photographs.}
+  \label{fig:misclassified_ai}
+\end{figure}
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.85\columnwidth]{figuri/misclassified_images/real_images_classified_as_ai/real_classified_as_ai.png}
+  \caption[MS-COCO real images misclassified as AI (Exp.~13, Dataset~B).]{MS-COCO real
+           images misclassified as AI by Experiment~13 (ResNet-50) on Dataset~B. The
+           subjects, traffic infrastructure, road scenes, wildlife, and outdoor
+           environments, are characteristic of documentary photography rather than
+           the stock-photography and portrait aesthetics of the real images in training,
+           pushing them outside the statistical region the model associates with the
+           real class.}
+  \label{fig:misclassified_real}
 \end{figure}
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -242,20 +274,16 @@ Table~\ref{tab:ood_progression} tracks the best out-of-distribution F1 on Datase
   \end{tabular}
 \end{table}
 
-A useful geometric interpretation of this progression: the model learns a decision
-boundary in feature space that separates the ``real'' cluster from the ``AI'' cluster.
-Each real-image source in the training corpus contributes a distinct region to the real
-cluster. In Stage~1, only one real-image source is present, so the real cluster is narrow
-and concentrated. When test real images come from a different source, they fall outside
-that narrow cluster and are misclassified as AI. Each additional source in the training
-corpus broadens the real cluster, extending it towards the regions of feature space that
-new test distributions occupy. This is why adding Shutterstock images in Stage~4 produces
-such a large jump in Dataset~A F1 (0.7361 $\to$ 0.9936): Shutterstock is the exact
-source of Dataset~A real images, so those test images now fall inside the trained cluster.
+The pattern has a simple explanation: a model can only recognise real images from sources
+it has seen during training. In Stage~1, each model sees real images from a single source,
+so it fails when test real images come from a different one. Adding more real-image sources
+to training directly fixes this. The large jump in Dataset~A F1 from Stage~3 to Stage~4
+(0.7361 $\to$ 0.9936) confirms this: Stage~4 adds Shutterstock photographs to training,
+which is the exact source of Dataset~A real images.
 
 This means the Stage~4 improvement on Dataset~A is partly an in-distribution effect, not
 a purely OOD one. Dataset~A real images are present in the Stage~4 training corpus. The
-near-perfect F1 of 0.9936 on Dataset~A therefore reflects a model that has seen the exact
+near-perfect F1 of 0.9936 on Dataset~A reflects a model that has seen the exact
 real-image source, not one that generalises from unseen sources. The genuinely OOD
 measurement for Stage~4 is Dataset~B, where MS-COCO real images remain
 underrepresented.
@@ -278,7 +306,7 @@ decision boundary.
 
 \begin{figure}[htb]
   \centering
-  \includegraphics[width=0.60\columnwidth]{figuri/exp09_resnet50_dataset_combined/resnet50_dataset_a_confusion_matrix.png}
+  \includegraphics[width=0.5\columnwidth]{figuri/exp09_resnet50_dataset_combined/resnet50_dataset_a_confusion_matrix.png}
   \caption{Experiment~9 (ResNet-50, B+C training): confusion matrix on Dataset~A (fully
            OOD). F1$\,{=}\,0.7361$. Both classes are partially recovered; errors are
            more symmetric than in Stage~1 OOD evaluations.}
@@ -294,6 +322,11 @@ set of 14,000 per class, yielding F1$\,{=}\,0.9987$. The contrast with Stage~3, 
 Dataset~A OOD F1 was 0.7361 and Stage~1, where it was below 0.40, confirms that the Stage~4
 improvement on these two datasets is attributable to the inclusion of their real-image
 sources (Shutterstock and FFHQ) in the training corpus rather than to increased data volume.
+
+Dataset~B F1 in Stage~4 (0.5798) is lower than in Stage~3 (0.6312). This is consistent
+with the dilution argument: as more real-image sources are added to the training corpus,
+each individual source occupies a smaller fraction. MS-COCO shrinks from 50\% of training
+real images in Stage~3 to 17.5\% in Stage~4, increasing the MS-COCO distribution mismatch.
 
 \begin{figure}[htb]
   \centering
@@ -314,10 +347,7 @@ sources (Shutterstock and FFHQ) in the training corpus rather than to increased 
   \end{minipage}
 \end{figure}
 
-Dataset~B F1 in Stage~4 (0.5798) is lower than in Stage~3 (0.6312). This is consistent
-with the dilution argument: as more real-image sources are added to the training corpus,
-each individual source occupies a smaller fraction. MS-COCO shrinks from 50\% of training
-real images in Stage~3 to 17.5\% in Stage~4, increasing the MS-COCO distribution mismatch.
+\pagebreak
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -366,17 +396,8 @@ epoch~12 triggers the final improvement. The shape is characteristic of
 ReduceLROnPlateau: a period of no progress, a step reduction, rapid improvement over
 one to two epochs, and then a new plateau at a slightly lower loss.
 
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=0.82\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_f1_curve.png}
-  \caption{Experiment~13 (ResNet-50): validation macro F1-score per epoch. The
-           ReduceLROnPlateau reduction at epoch~12 (from $10^{-4}$ to $5\times10^{-5}$)
-           breaks the plateau visible in epochs~8--11.}
-  \label{fig:f1_curve_ch5}
-\end{figure}
-
-The interpretation is straightforward. With learning rate $10^{-4}$, the optimiser
-overshoots the local minimum in the loss surface repeatedly; the resulting oscillation is
+With learning rate $10^{-4}$, the optimiser overshoots the local minimum in the 
+loss surface repeatedly, therefore the resulting oscillation is
 visible in epochs~6--11 of Figure~\ref{fig:f1_curve_ch5}. Halving the step size to
 $5\times10^{-5}$ reduces the overshoot and allows the model to settle into a narrower,
 lower minimum. This is the standard motivation for adaptive LR scheduling and is observed
@@ -386,17 +407,15 @@ The second LR reduction at epoch~18 (to $2.5\times10^{-5}$) produces no improvem
 By this point the model has likely reached a local minimum where further fine-tuning of
 the learning rate does not help, and early stopping terminates training at epoch~19.
 
-Comparing Experiment~13 with Experiment~14 (ResNet-18, same training corpus) reveals that
-the scheduling benefit is architecture-dependent. In Experiment~14, validation F1 rises
-steadily from 0.9253 at epoch~1 to 0.9733 at epoch~16 without a pronounced plateau in
-the same epoch range. No single LR reduction triggers a sharp improvement comparable to
-the $+0.0023$ gain seen in Experiment~13. The ResNet-18 model still converges to a
-strong best val F1 of 0.9733, but it does so through a more gradual trajectory. ResNet-50's
-larger parameter count introduces a higher-dimensional optimisation surface with sharper
-local minima; the step size that fits ResNet-18 is already small enough relative to the
-curvature of that surface, while ResNet-50 requires an explicit reduction to navigate it.
-This difference in LR sensitivity is consistent with the general observation that larger
-models are more sensitive to the learning rate schedule~\cite{he2016}.
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=0.82\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_f1_curve.png}
+  \caption{Experiment~13 (ResNet-50): validation macro F1-score per epoch. The
+           ReduceLROnPlateau reduction at epoch~12 (from $10^{-4}$ to $5\times10^{-5}$)
+           breaks the plateau visible in epochs~8--11.}
+  \label{fig:f1_curve_ch5}
+\end{figure}
 
 
 
@@ -417,7 +436,7 @@ At large data scale (Stage~4, 80,000 images from three datasets), the relationsh
 inverts. ResNet-50 outperforms ResNet-18 consistently across all three test sets: by
 0.0162 on Dataset~A (0.9936 vs.\ 0.9774), 0.0284 on Dataset~B (0.5798 vs.\ 0.5514),
 and 0.0124 on Dataset~C (0.9987 vs.\ 0.9863). The larger model benefits more from the
-richer and more diverse training signal~\cite{he2016}. With 80,000 training images
+richer and more diverse training signal. With 80,000 training images
 spanning three real-image sources and six generator families, the dataset contains enough
 signal to exploit ResNet-50's additional capacity without causing it to overfit any single
 source.
@@ -446,8 +465,8 @@ from MS-COCO, the model performs poorly on MS-COCO real images at test time. A r
 training set with equal proportions from each real source would likely improve Dataset~B
 real recall substantially.
 
-\textbf{No dedicated test split for combined datasets.} The combined training corpora
-have no reserved test split; evaluation is performed on the original held-out sets of
+\textbf{No dedicated test split for combined datasets.} The combined training sets
+have no reserved test split and the evaluation is performed on the original held-out sets of
 Datasets~A, B, and~C. For Stages~3 and~4, the training corpus overlaps with the source
 distributions of the test sets, which may slightly overestimate performance on those
 distributions relative to a fully independent test set.
@@ -475,4 +494,5 @@ from Chapter~4. The 16~GB VRAM ceiling constrained the maximum batch size to 128
 at $224\times224$ resolution. Larger batch sizes, which generally smooth the loss
 landscape and improve generalisation, were not feasible without GPU upgrades. Experiments
 at a larger scale, or with architectures such as ResNet-101 (${\approx}45$M parameters),
-would require a multi-GPU or cloud training environment beyond Colab's free tier.
+would require a multi-GPU or cloud training environment beyond the chosen Colab hardware,
+increasing the costs considerably.

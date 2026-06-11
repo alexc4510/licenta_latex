@@ -4,11 +4,11 @@
 \section{Datasets}
 \label{sec:datasets}
 
-Three publicly available datasets were selected to span two distinct generation paradigms and three
+Three publicly available datasets were selected to include two distinct generation paradigms and three
 independent real image distributions. Covering both diffusion-based synthesis and generative
 adversarial networks was essential for studying cross-dataset generalisation: a detector that
 succeeds within one paradigm may fail entirely on the other. Equally important is the diversity of
-real images: a model that overfits to the statistical properties of one real image source will
+real images: a model that overfits to the properties of one real image source will
 perform poorly when tested against photographs from a different source.
 Table~\ref{tab:dataset_summary} summarises the key properties of each dataset.
 
@@ -30,7 +30,7 @@ Table~\ref{tab:dataset_summary} summarises the key properties of each dataset.
 \subsection{Dataset A --- AI vs.\ Human-Generated Images}
 \label{sec:dataset_a}
 
-Dataset A is a binary classification dataset available on Kaggle. It contains 79,950 training
+Dataset A~\cite{datasetA_kaggle} is a binary classification dataset available on Kaggle. It contains 79,950 training
 images and 7,995 test images, with both splits balanced between classes: 39,975 real and 39,975
 AI images in the training set, and 3,998 real and 3,997 AI images in the test set.
 
@@ -38,19 +38,31 @@ The real images are professional photographs obtained from Shutterstock, coverin
 subjects including people, animals, landscapes, and objects. The AI-generated images were produced
 by Stable Diffusion v1.5~\cite{rombach2022}, a latent diffusion model that generates images from
 text prompts through iterative denoising in a compressed latent space. SD v1.5 outputs are
-photorealistic and stylistically diverse.
+photorealistic and have a diverse style.
 
 All images were pre-resized to $224 \times 224$ pixels using a centre-crop operation and stored
 in RGB format on Google Drive prior to training.
 
+Figure~\ref{fig:dataset_a_samples} shows representative samples from Dataset~A.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.65\columnwidth]{figuri/dataset_images/dataset_a/dataset_a_grid.png}
+  \caption{Representative samples from Dataset~A. Real Shutterstock photographs (top row)
+           and Stable Diffusion~v1.5 generated images (bottom row).}
+  \label{fig:dataset_a_samples}
+\end{figure}
+
+\pagebreak
+
 \subsection{Dataset B --- Defactify Image Dataset}
 \label{sec:dataset_b}
 
-Dataset B is the Defactify Image Dataset, available on HuggingFace. It covers five diffusion systems (Stable Diffusion 2.1, SDXL,
+Dataset B is the Defactify Image Dataset~\cite{roy2025defactify}, available on HuggingFace. 
+It covers five diffusion systems (Stable Diffusion 2.1, SDXL,
 Stable Diffusion 3, DALL-E 3, and MidJourney v6) spanning multiple generator families and
-capability levels. The real images are natural
-photographs sourced from MS-COCO, covering everyday scenes such as kitchens, street scenes, and
-outdoor environments.
+capability levels. The real images are natural photographs sourced from MS-COCO~\cite{lin2014coco}, 
+covering everyday scenes such as kitchens, street scenes, and outdoor environments.
 
 The dataset is structured with semantic pairing: each real image is associated with five
 AI-generated counterparts, one per generator, each produced from the same MS-COCO caption.
@@ -62,13 +74,12 @@ AI-generated images (7,500 per generator), yielding a 1:5 real-to-AI ratio. This
 reflects the fact that each real image has five AI counterparts. Table~\ref{tab:dataset_b_splits}
 shows the training subset used in this study.
 
-
 A metadata CSV supplied with the dataset provides a \texttt{label\_b} column encoding the
 generator identity of each AI image (1 = SD 2.1, 2 = SDXL, 3 = SD 3, 4 = DALL-E 3,
 5 = MidJourney v6). This column was used in the per-generator evaluation described in
 Section~\ref{sec:eval_protocol}.
 
-The five generators in Dataset~B span a wide capability range as of 2024. SD~2.1 is a
+The five generators in Dataset~B span a wide capability range, as of 2024. SD~2.1 is a
 second-generation latent diffusion model with improved text-image alignment relative to
 SD~1.5. SDXL is a larger-scale variant with a two-stage refinement pipeline that
 produces higher-resolution and more photorealistic outputs. SD~3 adopts a diffusion
@@ -102,11 +113,20 @@ All images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
   \end{tabular}
 \end{table}
 
+Figure~\ref{fig:dataset_b_samples} shows representative samples from Dataset~B.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.85\columnwidth]{figuri/dataset_images/dataset_b/dataset_b_grid.png}
+  \caption{Representative samples from Dataset~B. Real MS-COCO photographs (top row)
+           and AI-generated images from the five diffusion generators (bottom row).}
+  \label{fig:dataset_b_samples}
+\end{figure}
 
 \subsection{Dataset C --- 140k Real and Fake Faces}
 \label{sec:dataset_c}
 
-Dataset C is available on Kaggle and contains 140,000 face images: 100,000 in the training split
+Dataset C~\cite{datasetC_kaggle} is available on Kaggle and contains 140,000 face images: 100,000 in the training split
 and 20,000 in the test split, with both splits balanced. The real images originate from the
 Flickr-Faces-HQ (FFHQ) dataset, which consists of high-quality portrait photographs scraped from
 Flickr. The AI-generated images were produced by StyleGAN~\cite{karras2019}, a GAN-based
@@ -126,11 +146,21 @@ the task easier: a classifier can exploit face-specific artefacts in StyleGAN ou
 (ear lobe asymmetry, eye specular highlight inconsistency, background blurring
 patterns) that are not present in the FFHQ real images. The in-distribution F1 scores
 of 0.9978 (ResNet-50) and 0.9928 (ResNet-18) reflect this. Out-of-distribution, the
-specialisation limits transferability: a model trained on aligned face images has no
+specialisation limits the ability to transfer relevant learned features: a model trained on aligned face images has no
 exposure to the diverse subjects and compositions of Shutterstock or MS-COCO, and the
 learned representation fails to generalise.
 
 Images were pre-resized to $224 \times 224$ pixels and stored in RGB format.
+
+Figure~\ref{fig:dataset_c_samples} shows representative samples from Dataset~C.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.59\columnwidth]{figuri/dataset_images/dataset_c/dataset_c_grid.png}
+  \caption{Representative samples from Dataset~C. Real FFHQ portrait photographs (top row)
+           and StyleGAN-generated faces (bottom row).}
+  \label{fig:dataset_c_samples}
+\end{figure}
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -144,15 +174,26 @@ cross-dataset generalisation.
 B and C. It contains 28,000 training images: 7,000 real and 7,000 AI from Dataset B (1,400
 images per generator across five generators), and 7,000 real and 7,000 AI from Dataset C. The
 resulting corpus is evenly split between diffusion-generated and GAN-generated AI images.
-The motivation was to test whether mixing two paradigms already improves out-of-distribution
-generalisation to Dataset A, which was held out entirely. No dedicated test split was created;
+The objective was to test whether mixing two paradigms already improves out-of-distribution
+generalisation to Dataset A, which was excluded entirely. No dedicated test split was created;
 models were evaluated on the original test sets of Datasets A, B, and C.
 
 \textbf{dataset\_combined\_v2 (Experiments 13--14).} The second combined dataset merges all three
 source datasets into an 80,000-image training corpus: 40,000 real images and 40,000 AI images.
 Table~\ref{tab:combined_v2} shows the composition.
 
-\begin{table}[tb]
+The Dataset B subset used four generators (SD 2.1, SDXL, SD 3, DALL-E 3), with 1,750 AI images
+per generator. MidJourney v6 was excluded from training so that it could be used as an
+unseen-generator probe at evaluation time, providing a controlled test of whether the model
+generalises to a generator it has never seen. The Dataset B real images and their AI counterparts
+were selected using the semantic pairing from the original dataset, preserving semantic alignment.
+
+Dataset A contributes the largest real-image share (23,000 of 40,000) because its
+Shutterstock photographs span the widest range of subjects. The unequal source proportions
+reflect data availability after applying the 1:1 constraint and the MidJourney v6
+exclusion, rather than a pre-specified target.
+
+\begin{table}[h!]
   \centering
   \caption{Composition of dataset\_combined\_v2. MidJourney v6 was excluded from training
            to serve as an unseen-generator probe at evaluation time.}
@@ -169,17 +210,6 @@ Table~\ref{tab:combined_v2} shows the composition.
     \hline
   \end{tabular}
 \end{table}
-
-The Dataset B subset used four generators (SD 2.1, SDXL, SD 3, DALL-E 3), with 1,750 AI images
-per generator. MidJourney v6 was excluded from training so that it could be used as an
-unseen-generator probe at evaluation time, providing a controlled test of whether the model
-generalises to a generator it has never seen. The Dataset B real images and their AI counterparts
-were selected using the semantic pairing from the original dataset, preserving semantic alignment.
-
-Dataset A contributes the largest real-image share (23,000 of 40,000) because its
-Shutterstock photographs span the widest range of subjects. The unequal source proportions
-reflect data availability after applying the 1:1 constraint and the MidJourney v6
-exclusion, rather than a pre-specified target.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -237,7 +267,7 @@ Table~\ref{tab:architectures} summarises the key properties of each model.
   \end{tabular}
 \end{table}
 
-Both models were initialised with weights pretrained on ImageNet, a large-scale visual
+Both models were initialised with weights pretrained on ImageNet~\cite{deng2009imagenet}, a large-scale visual
 recognition dataset containing over 1.2 million images across 1,000 categories. Transfer
 learning from ImageNet is standard practice: the convolutional layers encode general visual
 features (edges, textures, shapes, and increasingly abstract patterns at deeper layers)
@@ -335,13 +365,15 @@ to improve generalisation on the larger and more diverse 80,000-image corpus.
   \end{tabular}}
 \end{table}
 
+\pagebreak
+
 \subsection{Standard Configuration (Experiments 1--12)}
 \label{sec:standard_config}
 
 Experiments 1 through 12 used a common training configuration.
 
 \textbf{Loss function.} Cross-entropy loss was used with inverse-frequency class weights to
-compensate for class imbalance. The weight for class $c$ was set to:
+compensate for class imbalance, specifically for Dataset B. The weight for class $c$ was set to:
 
 \begin{equation}
   w_c = \frac{N}{C \cdot n_c}
@@ -353,7 +385,7 @@ the number of samples in class $c$. For balanced datasets (A and C), these weigh
 For Dataset B, the real class receives a weight five times higher than the AI class,
 counteracting the 1:5 training imbalance.
 
-\textbf{Optimiser.} Adam with a learning rate of $\eta = 10^{-4}$ and default momentum
+\textbf{Optimiser.} Adam~\cite{kingma2015adam} with a learning rate of $\eta = 10^{-4}$ and default momentum
 parameters ($\beta_1 = 0.9$, $\beta_2 = 0.999$). Batch size was 128.
 
 \textbf{Preprocessing and augmentation.} Standard preprocessing as described in
@@ -390,7 +422,7 @@ larger and more diverse dataset\_combined\_v2.
 where $p_t$ is the model's estimated probability for the correct class and $\gamma$ is the
 focusing parameter, set to $\gamma = 2.0$. Focal Loss down-weights easy examples (those the
 model classifies with high confidence) and concentrates training on hard misclassifications.
-Label smoothing with $\varepsilon = 0.1$ was also applied, replacing the hard one-hot targets
+Label smoothing~\cite{szegedy2016rethinking} with $\varepsilon = 0.1$ was also applied, replacing the hard one-hot targets
 $(1, 0)$ with soft labels $(1 - \varepsilon, \varepsilon / (C-1))$ to prevent overconfident
 predictions and improve calibration.
 
@@ -408,25 +440,9 @@ hard cross-source examples. Label smoothing with $\varepsilon = 0.1$ reduces ove
 by preventing the model from assigning probability near 1.0 to any single class.
 
 \textbf{Data augmentation.} The augmentation pipeline was extended relative to the standard
-configuration. Table~\ref{tab:augmentation} summarises the transforms used in each
-configuration and their parameters. All augmentations are applied only during training;
-no augmentation is applied at validation or test time.
-
-\begin{table}[htb]
-  \centering
-  \caption{Data augmentation transforms for standard and advanced training configurations.}
-  \label{tab:augmentation}
-  \begin{tabular}{lllp{5cm}}
-    \hline
-    \textbf{Transform} & \textbf{Standard} & \textbf{Advanced} & \textbf{Rationale} \\
-    \hline
-    RandomHorizontalFlip & Yes ($p=0.5$) & Yes ($p=0.5$) & Left-right symmetry holds for all three datasets \\
-    ColorJitter          & No            & Yes            & Prevents exploitation of colour statistics specific to each real-image source \\
-    RandomRotation       & No            & Yes ($\pm10^\circ$) & Robustness to slight orientation differences across distributions \\
-    RandomErasing        & No            & Yes ($p=0.2$)  & Discourages reliance on a single localised region; promotes distributed evidence \\
-    \hline
-  \end{tabular}
-\end{table}
+configuration as well. Table~\ref{tab:augmentation} summarises the transforms used in each
+configuration and their parameters. All augmentations are applied only during training,
+whereas no augmentation is applied at validation or test time.
 
 \textbf{Learning rate schedule.} A linear warmup was applied over the first two epochs,
 linearly increasing the learning rate from 0 to $\eta = 10^{-4}$. After warmup, a
@@ -444,7 +460,25 @@ prevent instability in early epochs when the warmup LR is still low.
 validation F1-score was used. This change from the standard configuration aligns checkpoint
 selection with the primary evaluation metric.
 
+\begin{table}[htb]
+  \centering
+  \caption{Data augmentation transforms for standard and advanced training configurations.}
+  \label{tab:augmentation}
+  \begin{tabular}{lllp{5cm}}
+    \hline
+    \textbf{Transform} & \textbf{Standard} & \textbf{Advanced} & \textbf{Rationale} \\
+    \hline
+    RandomHorizontalFlip & Yes ($p=0.5$) & Yes ($p=0.5$) & Left-right symmetry holds for all three datasets \\
+    ColorJitter          & No            & Yes            & Prevents exploitation of colour statistics specific to each real-image source \\
+    RandomRotation       & No            & Yes ($\pm10^\circ$) & Robustness to slight orientation differences across distributions \\
+    RandomErasing~\cite{zhong2020random} & No            & Yes ($p=0.2$)  & Discourages reliance on a single localised region, promotes distributed evidence \\
+    \hline
+  \end{tabular}
+\end{table}
+
 % ─────────────────────────────────────────────────────────────────────────────
+
+\pagebreak
 
 \section{Evaluation Protocol}
 \label{sec:eval_protocol}
@@ -530,11 +564,11 @@ The balanced per-generator subsets differ from the full Dataset~B test set (7,50
 37,500 AI) in one important respect: the 1:5 class imbalance is resolved. Macro F1-scores
 computed on a balanced subset give equal weight to both classes, making per-generator
 comparisons directly interpretable. On the imbalanced full test set, the aggregate macro
-F1 of 0.5798 is depressed primarily by real-class errors rather than by AI-class errors;
+F1 of 0.5798 is decreased primarily by real-class errors rather than by AI-class errors;
 the per-generator breakdown is the correct diagnostic for identifying which generators
 drive poor performance, because it separates real-class errors (which are consistent across
 generators) from AI-class errors (which vary by generator). The two evaluations are
-complementary: the aggregate F1 reflects overall deployment-level performance, while the
+complementary: the aggregate F1 reflects overall performance, while the
 per-generator analysis identifies the specific failure modes.
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -542,7 +576,7 @@ per-generator analysis identifies the specific failure modes.
 \section{Implementation}
 \label{sec:implementation}
 
-All experiments were implemented in Python using PyTorch 2.3.0 and torchvision 0.18.0. Training
+All experiments were implemented in Python using PyTorch~\cite{paszke2019pytorch} 2.3.0 and torchvision 0.18.0. Training
 was performed on a Google Colab environment with an NVIDIA T4 GPU (16~GB VRAM). Datasets were
 stored on Google Drive, with all images pre-resized to $224 \times 224$ pixels before training
 to eliminate repeated resizing overhead during data loading.
@@ -569,13 +603,13 @@ checks for an existing checkpoint in the output directory on Google Drive and re
 the last completed epoch if one is found. For all experiments except Experiment~14, this
 mechanism operated correctly. In Experiment~14, a runtime crash at epoch~3 overwrote the
 checkpoint of a previously completed run rather than resuming from it, because the session
-was inadvertently launched without confirming the target output path. The experiment was
+was unintentionally launched without confirming the target output path. The experiment was
 re-run from epoch~0; the final results in Chapter~4 come from this complete re-run. The
 training curves and per-generator bar chart from the overwritten first run were corrupted
 and are excluded from the thesis.
 
 The 16~GB VRAM ceiling of the T4 constrained the maximum feasible batch size to 128 images
 at $224\times224$ resolution with a ResNet-50 backbone. Larger batch sizes were not
-attempted. In practice, GPU memory was the binding constraint for all Stage~4 experiments;
-the combined dataset with Focal Loss and extended augmentation brought VRAM usage to
+attempted. In practice, GPU memory was the binding constraint for all Stage~4 experiments.
+The combined dataset with Focal Loss and extended augmentation brought VRAM usage to
 approximately 14~GB during forward passes at batch size 128.

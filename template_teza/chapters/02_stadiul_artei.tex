@@ -27,7 +27,7 @@ At Nash equilibrium, the generator produces images whose distribution is
 indistinguishable from the real data distribution. In practice, training is unstable:
 the discriminator can saturate early, and the generator can collapse to a small number
 of modes. Significant engineering effort, including batch normalisation, spectral
-normalisation, and progressive growing, was required before GAN outputs reached
+normalisation, and progressive growing~\cite{karras2018progressive}, was required before GAN outputs reached
 photorealistic quality.
 
 StyleGAN~\cite{karras2019}, introduced by Karras et al.\ in 2019, addresses the quality
@@ -35,21 +35,21 @@ and controllability problem through a style-based generator architecture. A mapp
 network $f: \mathcal{Z} \rightarrow \mathcal{W}$ transforms the input latent code $z$
 into an intermediate style vector $w$, which controls the synthesis network at each
 resolution level via adaptive instance normalisation. The spatial content of the image
-is separated from its style, and synthesis proceeds by progressively adding detail at
+is separated from its style, and synthesis continues by progressively adding detail at
 increasing resolutions from $4\times4$ to $1024\times1024$. StyleGAN and its successors
 produce human portrait images at a resolution and perceptual quality where gallery-scale
-synthetic face collections are visually indistinguishable from stock photography. Dataset~C,
+synthetic face collections are visually difficult to distinguish from stock photography. Dataset~C,
 one of the three datasets used in this thesis, is built from StyleGAN-generated faces
 paired with FFHQ real portraits.
 
 The instability of GAN training had a secondary effect that is relevant to detection. Early
 GAN generators, particularly those based on transposed convolution with fixed integer
 strides, converged to outputs with strong periodic artefacts. A transposed convolution with
-stride~2 introduces a checkerboard pattern in the spatial domain that appears as spectral
+stride~2 introduces a checkerboard pattern~\cite{odena2016deconvolution} in the spatial domain that appears as spectral
 peaks at Nyquist/2 in the FFT magnitude spectrum. These peaks are absent from natural
-photographs, whose spatial statistics follow an approximate $1/f$ decay. Detectors that
+photographs, whose spatial statistics follow an approximate $1/f$ decay~\cite{ruderman1994statistics}. Detectors that
 operated on the frequency spectrum of early GAN outputs could reliably identify these peaks
-as evidence of generation. The artefacts were, in effect, a consequence of the discriminator
+as evidence of generation. The artefacts were a consequence of the discriminator
 failing to fully eliminate the upsampling grid structure from the generator's outputs.
 
 Early CNN-based detection methods were designed with GAN outputs in mind. GAN generators
@@ -86,24 +86,24 @@ Latent Diffusion Models~\cite{rombach2022}, introduced by Rombach et al.\ in 202
 this approach computationally tractable at high resolution. An autoencoder compresses
 images into a lower-dimensional latent representation; the diffusion process runs in this
 latent space rather than in pixel space. A cross-attention mechanism in the denoising
-network conditions generation on an external signal, typically a CLIP text embedding,
+network conditions generation on an external signal, typically a CLIP~\cite{radford2021clip} text embedding,
 enabling text-to-image generation. The resulting Stable Diffusion models, beginning with
-version~1.5 and progressing through SD~2.1, SDXL, and SD~3, produce high-resolution
+version~1.5 and progressing through SD~2.1, SDXL~\cite{podell2023sdxl}, and SD~3~\cite{esser2024sd3}, produce high-resolution
 photorealistic images from arbitrary text prompts at a computational cost accessible to
 consumer hardware. Commercial systems including DALL-E~3 and MidJourney~v6 build on the
 same latent diffusion principles. Dataset~A in this thesis uses Stable Diffusion~v1.5
-outputs; Dataset~B uses outputs from five diffusion-based generators including SD~2.1,
+outputs, while Dataset~B uses outputs from five diffusion-based generators: SD~2.1,
 SDXL, SD~3, DALL-E~3, and MidJourney~v6.
 
 The rise of diffusion models has made detection substantially harder than in the GAN era.
 A GAN generator is a fixed mapping from latent space to image space, and the artefacts it
 produces are characteristic of that mapping. A diffusion model iteratively refines an
-image across hundreds of denoising steps, with each step contributing small corrections
+image across hundreds of denoising steps, with each step adding small corrections
 that progressively remove spectral inconsistencies. Modern diffusion outputs at full
 resolution are consistently judged as photorealistic by human observers, and the
 model-specific artefacts are smaller in magnitude and more variable in character than
 those of earlier GAN architectures. Detection methods that relied on generator-specific
-spectral signatures face a harder target when the target is a diffusion model rather than
+spectral signatures face a harder challenge when the target is a diffusion model rather than
 a GAN.
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -116,28 +116,27 @@ a GAN.
 
 The history of AI image detection mirrors the broader pattern of adversarial dynamics in
 computer vision: each generation of detectors is designed around the artefacts of the
-generators available at the time, and each generation of generators removes or weakens
+generators available at the time, and each iteration of generators aims to remove or weaken
 those artefacts. Early GAN architectures (2014--2018) produced outputs with strong
-checkerboard artefacts from transposed convolution upsampling, visible blurring at
+checkerboard artefacts from transposed convolution upsampling~\cite{odena2016deconvolution}, visible blurring at
 high spatial frequencies, and inconsistent tooth and hair textures. Detectors from the
 same period exploited these patterns effectively. The introduction of progressive growing
 (2018) and style-based synthesis (2019) produced outputs with substantially weaker
 spectral artefacts and higher perceptual quality, breaking earlier detectors. The shift
 to diffusion models (2020--2022) removed the fixed upsampling grid structure entirely,
 replacing it with iterative denoising that distributes synthesis artefacts over hundreds
-of steps; this change rendered spectral detectors unreliable as a class.
+of steps. This change made spectral detectors unreliable as a class.
 
 Before CNN-based classifiers, AI image detection relied on hand-crafted features drawn
-from the signal processing and steganalysis literature. Spatial Rich Model features,
-co-occurrence matrices of noise residuals, and JPEG quantisation statistics were used to
-characterise the statistical fingerprint of synthesis operations. These methods achieved
-reasonable performance on early GAN architectures whose upsampling operations introduced
+from the signal processing and digital forensics literature. To capture the unique statistical 
+fingerprint left behind by AI synthesis, researchers used JPEG quantization statistics, 
+co-occurrence matrices of noise residuals, and Spatial Rich Model features~\cite{fridrich2012rich}. 
+These methods achieved reasonable performance on early GAN architectures whose upsampling operations introduced
 strong and consistent spectral artefacts. As generator quality improved and upsampling
 pipelines became more sophisticated, the artefacts these methods targeted became weaker
-and less consistent across architectures, and performance degraded. The shift to CNN-based
-feature extraction was motivated by the need for representations that could adapt to the
-diversity of generator-specific fingerprints rather than relying on a fixed feature
-dictionary.
+and less consistent across architectures, and performance degraded. The move to CNN feature 
+extraction was driven by the need to adapt to diverse, generator-specific fingerprints instead 
+of relying on a fixed dictionary of features.
 
 \subsection{CNN-Based Detectors}
 \label{subsec:cnn_detectors}
@@ -147,24 +146,24 @@ their CNNSpot method. A ResNet~\cite{he2016} is fine-tuned on ProGAN-generated i
 alongside real images from the LSUN dataset. At training time, Gaussian blur and JPEG
 compression augmentation are applied to reduce reliance on high-frequency artefacts
 specific to the training generator. The model is then evaluated on images from 11
-different GAN architectures spanning a range of generator families.
+different GAN architectures, from a range of generator families.
 
-The central finding of Wang et al.\ is that training on one generator produces near-perfect
-in-distribution performance but substantially degraded performance on other generators.
+The main finding of Wang et al.\ is that training on one generator produces near-perfect
+in-distribution performance, but substantially poorer results on other generators.
 Even with augmentation, cross-generator F1 drops to near-random for architectures whose
-spectral footprint differs substantially from the training distribution. This finding,
-that CNN detectors learn generator-specific shortcuts rather than universal artefact
-signatures, is the central challenge addressed in this thesis. The work of Wang et al.\
-was conducted entirely within the GAN paradigm on a single real-image source; this thesis
+spectral footprint differs significantly from the training distribution. This discovery 
+that CNN detectors learn generator-specific shortcuts rather than universal artefacts 
+is the central challenge addressed in this thesis. The work of Wang et al.\
+was conducted entirely within the GAN paradigm on a single real-image source, while this thesis
 extends it to a cross-paradigm setting with three independent real-image sources and a
-controlled four-stage training progression.
+controlled four-stage training process.
 
 The ResNet architecture~\cite{he2016} is the backbone used in both CNNSpot and in all
 14 experiments in this thesis. ResNet introduced residual connections, also called skip
 connections, which allow a layer to learn the residual mapping $\mathcal{F}(x) = H(x) - x$
 rather than the full transformation $H(x)$. This enables the training of much deeper
 networks by providing a gradient path that bypasses each block and prevents vanishing
-gradients. ResNet-50 (~25.6M parameters) and ResNet-18 (~11.7M parameters) are used in
+gradients. ResNet-50 (${\approx}$25.6M parameters) and ResNet-18 (${\approx}$11.7M parameters) are used in
 this thesis, both initialised from ImageNet-pretrained weights and fine-tuned with a
 modified two-class output layer.
 
@@ -200,13 +199,13 @@ grids produce. When a generator applies transposed convolution or nearest-neighb
 upsampling at a fixed stride, the operation introduces spectral peaks at frequencies
 determined by that stride. These peaks appear in the FFT magnitude spectrum of generated
 images as regular grid-like patterns absent from camera-captured photographs, whose
-spectral content follows a natural $1/f$ decay. Detectors that operate in the frequency
-domain or use spectral features as input can exploit these patterns directly.
+spectral content follows a natural $1/f$ decay~\cite{ruderman1994statistics}. Detectors that operate in the frequency
+domain or use spectral features as input can exploit these patterns directly~\cite{zhang2019detecting,frank2020leveraging}.
 
 A related preprocessing approach applies band-pass filtering, such as Difference of
 Gaussians, to suppress low-frequency content and isolate the frequency bands where
 generative artefacts concentrate. If the detector is supplied with a band-pass image
-rather than the raw RGB input, the task of identifying spectral irregularities is
+rather than the raw RGB input, the task of identifying spectral anomalies is
 simplified. The DoG transform with parameters $\sigma_1 = 1.0$ and $\sigma_2 = 2.0$
 produces a band-pass response centred roughly on the spatial frequency range
 $[1/(2\sigma_2),\, 1/(2\sigma_1)]$ cycles per pixel, which covers the upsampling
@@ -219,8 +218,8 @@ irregularities introduced by the previous step; the result is that modern diffus
 outputs lack the strong periodic peaks characteristic of transposed-convolution GANs.
 Frequency-domain detection has therefore become less reliable as diffusion models have
 displaced GANs as the dominant generation paradigm. Experiments~11 and~12 in Chapter~4
-test the DoG preprocessing hypothesis directly on both diffusion-model and GAN datasets;
-the results show consistent degradation relative to the RGB baseline and are analysed in
+test the DoG preprocessing hypothesis directly on both diffusion-model and GAN datasets.
+The results show consistent degradation relative to the RGB baseline and are analysed in
 detail in Chapter~5.
 
 % ─────────────────────────────────────────────────────────────────────────────
@@ -244,33 +243,33 @@ predict cross-generator performance.
 The UniversalFakeDetect benchmark introduced by Ojha et al.~\cite{ojha2023} extends the
 generator coverage to 21 architectures, including both GAN and diffusion models. It
 includes generators from both paradigms in the test set and is the benchmark on which
-the CLIP-based universal detector was evaluated. Its inclusion of diffusion models makes
+the CLIP-based universal detector was evaluated. The inclusion of diffusion models makes
 it the first benchmark to evaluate cross-paradigm generalisation systematically.
 
 This thesis uses three datasets that together provide cross-paradigm, multi-generator,
-and multi-real-source coverage. Dataset~A~\cite{rombach2022} is the ``AI vs.\
+and multi-real-source coverage. Dataset~A~\cite{datasetA_kaggle} is the ``AI vs.\
 Human-Generated Images'' Kaggle dataset: approximately 80,000 balanced images with Stable
-Diffusion~v1.5 as the AI source and Shutterstock stock photographs as the real source.
-Dataset~B is the Defactify Image Dataset, available on HuggingFace: 96,000 images from
+Diffusion~v1.5~\cite{rombach2022} as the AI source and Shutterstock stock photographs as the real source.
+Dataset~B is the Defactify Image Dataset~\cite{roy2025defactify}, available on HuggingFace: 96,000 images from
 five diffusion-based generators (SD~2.1, SDXL, SD~3, DALL-E~3, MidJourney~v6) paired
-with MS-COCO natural photographs at a 1:5 real-to-AI imbalance. Metadata identifies
-which generator produced each AI image, enabling per-generator evaluation. Dataset~C~\cite{karras2019}
+with MS-COCO natural photographs at a ratio of 1:5 real-to-AI imbalance. Metadata identifies
+which generator produced each AI image, enabling per-generator evaluation. Dataset~C~\cite{datasetC_kaggle}
 is the ``140k Real and Fake Faces'' Kaggle dataset: 140,000 balanced images from
 StyleGAN~\cite{karras2019} paired with FFHQ portrait photographs.
 
 None of the three datasets was designed for cross-dataset evaluation. Each was
 constructed as an in-distribution benchmark for a specific generator or set of generators
-against a specific real-image source. This thesis repurposes them together for a different
-question: how well does a model trained on one dataset's joint distribution of real and AI
-images transfer to another dataset's distribution? The answer depends not only on the
+against a specific real-image source. This thesis groups them together for a different purpose: 
+to evaluate how well a model trained on both real and AI classes of a 
+dataset performs on another dataset's distribution. The answer depends not only on the
 generator but also on the real-image source, a dependency that the cross-dataset matrix
-makes explicit.
+makes obvious.
 
-The choice of real-image source matters beyond academic convenience. Detectors deployed
+The choice of real-image source is an essential matter for this thesis. Detectors used
 in practice encounter images from sources that differ from their training data in both
 generator and photographic subject matter. A model trained on studio portraits (FFHQ)
 may never have learned the low-level statistics of natural-scene photographs (MS-COCO)
-or stock images (Shutterstock); the resulting classifier may perform well on faces but
+or stock images (Shutterstock). The resulting classifier may perform well on faces, but
 produce high false-positive rates on landscapes, products, or social media snapshots
 where the real-image appearance differs substantially from training. Benchmark coverage
 that varies only the generator while holding the real-image source constant cannot expose
@@ -309,7 +308,7 @@ extractor design. The 3$\times$3 cross-dataset matrix covers both sources of dis
 shift simultaneously: generator change and real-image source change, across two generation
 paradigms and three independent real-image sources. Prior benchmarks use a single
 real-image source, so any OOD degradation is attributed entirely to the generator even
-when the real-image shift is equally responsible; the matrix design here disentangles the
+when the real-image shift is equally responsible. The matrix design here decouples the
 two by varying each independently. The four-stage progression then isolates the
 contribution of each modification, establishing that real-image source diversity is the
 primary driver of OOD improvement. Table~\ref{tab:method_comparison} summarises all three
@@ -330,7 +329,7 @@ approaches.
     Test generators      & 11 (GAN only)        & 21 (GAN + diffusion)  & 6 (diffusion + GAN) \\
     Real-image sources   & 1 (LSUN)             & 1                     & 3 (Shutterstock, COCO, FFHQ) \\
     Cross-paradigm eval  & No                   & Yes                   & Yes \\
-    Real-source ablation & No                   & No                    & Yes \\
+    Real-source variation & No                   & No                    & Yes \\
     \hline
   \end{tabular}}
 \end{table}

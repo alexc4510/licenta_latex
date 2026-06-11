@@ -10,7 +10,7 @@
 All six single-source models in Stage~1 achieve near-perfect in-distribution macro F1
 (above 0.99 for Datasets~A and~C, 0.65 for Dataset~B) but collapse when tested on images
 from a different dataset. The minimum off-diagonal macro F1 in the cross-dataset matrix is
-0.1436; several cells reach exactly 0.3333, the value produced by a classifier that assigns
+0.1436. Two cells reach $\approx 0.33$, the value produced by a classifier that assigns
 every input to a single class. The failure is consistent across both architectures
 (ResNet-50 and ResNet-18) and both generation paradigms (diffusion and GAN). Because
 near-identical failure occurs in a model with 2.2 times more parameters, architecture
@@ -64,12 +64,12 @@ ResNet-50 and ResNet-18, spanning diffusion-model and GAN generation paradigms. 
 establishes that off-diagonal failure is not architecture-specific or paradigm-specific:
 every off-diagonal cell falls substantially below the corresponding in-distribution value,
 with the worst reaching 0.1436. This structure of the matrix constitutes direct
-quantitative evidence for the dataset-specific shortcut hypothesis.
+quantitative evidence for the dataset-specific shortcut hypothesis~\cite{geirhos2020shortcut}.
 
 \textbf{Multi-stage training progression from failure to robust detection.} The
 four-stage experimental design isolates the effect of each modification to the training
 corpus and configuration. The progression from single-source training in Stage~1 through
-balanced Dataset~B in Stage~2, combined B+C with DoG ablation in Stage~3, and the full
+balanced Dataset~B in Stage~2, combined B+C with DoG comparison in Stage~3, and the full
 A+B+C corpus with advanced regularisation in Stage~4 traces a causal path from near-total
 OOD failure to near-perfect in-distribution detection. The dominant factor in each
 stage transition is the introduction of a new real-image source, rather than additional
@@ -90,7 +90,7 @@ FFHQ, MS-COCO) and six AI generator families across two paradigms. The real and 
 subsets are balanced at 40,000 each. MidJourney~v6 is withheld from training and
 evaluated as an unseen-generator probe. The construction, including the semantic pairing
 of Dataset~B real and AI images by MS-COCO caption and the proportional sampling from
-each source, is described in Chapter~3 and in the code listed in the appendix.
+each source is described in Chapter~3.
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ underrepresented relative to its weight in the Dataset~B test set, where all 7,5
 images are MS-COCO. Raising the MS-COCO proportion to 40\% (from 7,000 to approximately
 16,000 real images), matched by a corresponding increase in Dataset~B AI images to
 maintain class balance, would address the real-image distribution mismatch directly.
-This rebalancing is expected to raise real recall from the current 0.61 ceiling; the
+This rebalancing is expected to raise real recall from the current 0.61 ceiling. The
 per-generator analysis shows no generator-specific floor on real recall, so the uniform
 0.61 is a training-corpus artefact rather than an intrinsic difficulty. Including
 MidJourney~v6 in training is a secondary improvement: AI recall on the MidJourney~v6

@@ -45,8 +45,8 @@ converge within four epochs, consistent with the use of ImageNet-pretrained weig
 
 Figure~\ref{fig:exp01_curves} shows the training and validation curves for Experiment~1
 (ResNet-50, Dataset~A), representative of the fast convergence seen across all six
-Stage~1 experiments. Both loss and accuracy stabilise within three epochs; the best
-checkpoint is reached at epoch~4. The rapid convergence is consistent with ImageNet
+Stage~1 experiments. Both loss and accuracy stabilise within three epochs, as the best
+checkpoint is reached at epoch~4. The fast convergence is consistent with ImageNet
 pre-training: the convolutional layers already encode rich visual features, and adaptation
 to the binary classification task requires only shallow modification of the final layer.
 
@@ -76,11 +76,11 @@ Section~\ref{sec:dataset_b}.
 \subsection{Cross-Dataset Generalisation}
 \label{sec:cross_dataset_results}
 
-After training, each Stage~1 model is evaluated on all three test sets. The results are
+After training, each Stage~1 model (Experiments 1--6) is evaluated on all three test sets. The results are
 collected in the cross-dataset generalisation matrix, shown for ResNet-50 in
 Figure~\ref{fig:matrix_resnet50} and for ResNet-18 in Figure~\ref{fig:matrix_resnet18}.
-Each row represents the training dataset; each column represents the test dataset.
-Diagonal entries are in-distribution results; off-diagonal entries measure generalisation.
+Each row represents the training dataset, while each column represents the test dataset.
+Diagonal entries are in-distribution results, whereas off-diagonal entries measure generalisation.
 
 \begin{figure}[h!]
   \centering
@@ -102,8 +102,8 @@ Diagonal entries are in-distribution results; off-diagonal entries measure gener
 
 The off-diagonal entries reveal near-complete generalisation failure. The minimum observed
 value is 0.1436 (ResNet-18, trained on C, tested on B), well below the 0.33 baseline that
-corresponds to predicting one class for the entire test set. Several cells reach exactly
-0.3333, confirming that the model collapses to a single-class prediction on those
+corresponds to predicting one class for the entire test set. Two cells reach
+$\approx 0.33$, confirming that the model collapses to a single-class prediction on those
 pairings. Table~\ref{tab:cross_dataset_matrix} presents all nine values for both
 architectures.
 
@@ -113,9 +113,9 @@ failure pattern is consistent across architectures: ResNet-50 and ResNet-18 prod
 qualitatively identical off-diagonal results, ruling out model capacity as the primary
 explanation. The implications of this pattern are discussed in Chapter~5.
 
-Two conclusions follow from Stage~1. First, in-distribution F1 is not a reliable proxy
-for OOD performance: a model scoring 0.9961 on its own test set scores 0.1553 and 0.3333
-on the other two. Second, the failure is not random but structured: the best OOD transfer
+Two conclusions follow from Stage~1. Firstly, in-distribution F1 is not a reliable metric
+for OOD performance: a model scoring 0.9961 on its own test set scores 0.1553 and $\approx 0.33$
+on the other two. Secondly, the failure is not random, but structured: the best OOD transfer
 always occurs between the two diffusion-model datasets (A and B), while the GAN dataset
 (C) produces the hardest OOD targets for models trained on either diffusion dataset.
 Stage~2 investigates whether the Dataset~B difficulty stems from class imbalance.
@@ -145,24 +145,24 @@ Stage~2 investigates whether the Dataset~B difficulty stems from class imbalance
 \section{Stage 2: Balanced Dataset B (Experiments 7--8)}
 \label{sec:stage2}
 
-The 1:5 real-to-AI imbalance in Dataset~B (Section~\ref{sec:dataset_b}) is a candidate
+The 1:5 real-to-AI imbalance in Dataset~B (Section~\ref{sec:dataset_b}) is a possible
 cause of its relatively low Stage~1 performance. Experiments~7 and~8 test this by training
-on a balanced version of Dataset~B: 7,000 real images paired with 7,000~AI images (1,400
-per generator across five generators). Training configuration is otherwise identical to
+on a balanced and reduced version of Dataset~B: 7,000 real images paired with 7,000~AI images (1,400
+per generator across five generators). Training configuration is identical to the one used in
 Stage~1.
 
 Each model is evaluated on both the original imbalanced test set and a balanced test split,
 enabling direct comparison with Stage~1 baselines. Table~\ref{tab:stage2_results} presents
 the results.
 
-Balancing yields modest gains: $+0.031$ F1 for ResNet-50 and $+0.040$ for ResNet-18 on
+Balancing generates modest gains: $+0.031$ F1 for ResNet-50 and $+0.040$ for ResNet-18 on
 the balanced test set. On the original imbalanced test, both models perform slightly worse
 than their Stage~1 counterparts trained on the imbalanced distribution (0.6401
 vs.\ 0.6512 for ResNet-50). Class imbalance thus accounts for a small part of Dataset~B
 difficulty, but the fundamental challenge remains: five generators with distinct visual
 characteristics are difficult to capture simultaneously with a single model.
 
-These results show that the 1:5 imbalance in Dataset~B depresses the macro F1 metric but
+These results show that the 1:5 imbalance in Dataset~B lowers the macro F1 metric, but
 is not the primary explanation for low performance. The F1 ceiling for a model trained
 only on Dataset~B is approximately 0.67, regardless of how the imbalance is handled.
 Stage~3 tests a different hypothesis: that combining training data from two datasets with
@@ -262,17 +262,17 @@ This partial OOD recovery, achieved without any Dataset~A training images, demon
 that combining two real-image sources (MS-COCO and FFHQ) already broadens the model's
 representation of real-image appearance towards the Shutterstock distribution.
 
-\begin{figure}[tb]
+Experiment~10 (ResNet-18, RGB) shows weaker OOD transfer to Dataset~A (F1$\,{=}\,0.5975$
+vs.\ 0.7361 for ResNet-50), reflecting the smaller model's reduced capacity to generalise
+across two real-image distributions simultaneously.
+
+\begin{figure}[h!]
   \centering
   \includegraphics[width=0.60\columnwidth]{figuri/exp09_resnet50_dataset_combined/resnet50_dataset_a_confusion_matrix.png}
   \caption{Experiment~9 (ResNet-50, B+C combined): confusion matrix on Dataset~A
            (fully out-of-distribution). F1$\,{=}\,0.7361$.}
   \label{fig:exp09_confusion_a}
 \end{figure}
-
-Experiment~10 (ResNet-18, RGB) shows weaker OOD transfer to Dataset~A (F1$\,{=}\,0.5975$
-vs.\ 0.7361 for ResNet-50), reflecting the smaller model's reduced capacity to generalise
-across two real-image distributions simultaneously.
 
 \subsection{Difference of Gaussians Preprocessing (Experiments 11--12)}
 \label{sec:stage3_dog}
@@ -295,7 +295,7 @@ which contains StyleGAN faces. GAN artefacts are the intended target of the DoG
 band-pass filter, so one might expect DoG to help most on Dataset~C. The opposite result
 suggests that StyleGAN faces do not produce the strong periodic artefacts characteristic
 of earlier transposed-convolution GANs. StyleGAN's style-based architecture and
-progressive growing produce smoother spatial statistics; the artefacts that DoG is tuned
+progressive growing produce smoother spatial statistics. The artefacts that DoG is tuned
 to expose are weaker or absent. The model therefore loses useful RGB signal (skin tone,
 lighting, hair texture) without gaining corresponding artefact-signal, producing a net
 loss.
@@ -303,6 +303,21 @@ loss.
 Stage~4 takes a different approach: instead of preprocessing the input signal, the
 training corpus is extended to cover all three datasets simultaneously, using advanced
 regularisation to prevent overfitting on the larger 80,000-image training set.
+
+Figure~\ref{fig:dog_example} illustrates the visual effect of the DoG transform on a
+representative real and AI image pair from Dataset~C.
+
+\begin{figure}[h!]
+  \centering
+  \includegraphics[width=0.60\columnwidth]{figuri/dog/dog_example.png}
+  \caption{Effect of DoG preprocessing ($\sigma_1=1.0$, $\sigma_2=2.0$) on a real
+           photograph (top row) and a StyleGAN-generated face (bottom row). Left column:
+           raw RGB input. Right column: DoG band-pass output. Colour and low-frequency
+           structure are suppressed; only edges and fine textures remain. The two DoG
+           outputs are visually similar, explaining why the transform does not aid
+           discrimination.}
+  \label{fig:dog_example}
+\end{figure}
 
 % ─────────────────────────────────────────────────────────────────────────────
 
@@ -327,7 +342,7 @@ without improvement over the epoch-14 best).
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=0.85\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_f1_curve.png}
+  \includegraphics[width=0.48\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_f1_curve.png}
   \caption{Experiment~13 (ResNet-50): validation macro F1-score per epoch. The
            ReduceLROnPlateau scheduler halves the learning rate from $10^{-4}$ to
            $5\times10^{-5}$ at epoch~12, triggering the best checkpoint at epoch~14
@@ -344,16 +359,18 @@ the best checkpoint. Epochs~15--19 show further oscillation with no improvement;
 a second LR reduction to $2.5\times10^{-5}$ at epoch~18 produces no further gains.
 
 Figure~\ref{fig:exp13_loss_curve} shows training and validation loss. Training loss
-decreases monotonically throughout; validation loss mirrors the F1 oscillation pattern,
+decreases monotonically throughout, while validation loss mirrors the F1 oscillation pattern,
 confirming that the post-epoch-8 plateau is a generalisation issue rather than
 insufficient training.
 
 \begin{figure}[h!]
   \centering
-  \includegraphics[width=0.85\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_loss_curve.png}
+  \includegraphics[width=0.48\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_loss_curve.png}
   \caption{Experiment~13 (ResNet-50): training and validation loss per epoch.}
   \label{fig:exp13_loss_curve}
 \end{figure}
+
+\pagebreak
 
 Test results for the epoch-14 checkpoint are presented in Table~\ref{tab:exp13_14_results}.
 ResNet-50 achieves F1$\,{=}\,0.9936$ on Dataset~A and F1$\,{=}\,0.9987$ on
@@ -379,26 +396,25 @@ Figure~\ref{fig:exp13_confusion_b} shows the confusion matrix for Dataset~B.
 Of 37,500~AI test images, 25,590 are correctly classified (AI precision~$=$~0.90,
 AI recall~$=$~0.68). Of 7,500~real test images, 4,612 are correctly classified
 (real precision~$=$~0.28, real recall~$=$~0.61). The low real precision indicates
-that a large number of AI images are misclassified as real; the low real recall
-indicates that many actual real images are predicted as AI. Both errors are analysed
-in Chapter~5 in terms of the MS-COCO real image underrepresentation in the training
-corpus.
+that a large number of AI images are misclassified as real and the low real recall
+indicates that many actual real images are predicted as AI.
 
-\begin{figure}[tb]
+\begin{figure}[h!]
   \centering
-  \includegraphics[width=0.70\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_dataset_b_confusion_matrix.png}
+  \includegraphics[width=0.48\columnwidth]{figuri/exp13_resnet50_combined_v2/resnet50_dataset_b_confusion_matrix.png}
   \caption[Experiment~13 (ResNet-50): confusion matrix on Dataset~B.]{Experiment~13
-           (ResNet-50): confusion matrix on Dataset~B test set (37,500~AI, 7,500~real).
-           AI class: label~0. Real class: label~1.}
+           (ResNet-50): confusion matrix on Dataset~B test set}
   \label{fig:exp13_confusion_b}
 \end{figure}
+
+\pagebreak
 
 Figures~\ref{fig:exp13_confusion_a} and~\ref{fig:exp13_confusion_c} show the confusion
 matrices for Datasets~A and~C respectively. Both are nearly diagonal. Dataset~A produces
 near-equal quadrants with classification errors below 1\% per class. Dataset~C shows
 near-perfect separation, with precision and recall approaching 1.00 for both classes.
 
-\begin{figure}[tb]
+\begin{figure}[h!]
   \centering
   \begin{minipage}{0.48\columnwidth}
     \centering
@@ -415,11 +431,12 @@ near-perfect separation, with precision and recall approaching 1.00 for both cla
   \end{minipage}
 \end{figure}
 
+\FloatBarrier
 \subsection{Experiment 14: ResNet-18}
 \label{sec:exp14}
 
 Experiment~14 repeats Stage~4 training with ResNet-18. Training completes all 20~epochs
-without triggering early stopping; the best checkpoint is at epoch~16
+without triggering early stopping, the best checkpoint being achieved at epoch~16
 (val F1$\,{=}\,0.9733$).
 
 Test results in Table~\ref{tab:exp13_14_results} show ResNet-18 achieving 0.9774 on
@@ -509,24 +526,6 @@ bar chart.
   \end{tabular}
 \end{table}
 
-\begin{figure}[h!]
-  \centering
-  \begin{minipage}{0.48\columnwidth}
-    \centering
-    \includegraphics[width=\linewidth]{figuri/exp13_resnet50_combined_v2/generator_splits/resnet50_dataset_b_generator_f1.png}
-    \caption{Exp.~13 (ResNet-50): per-generator macro F1-score on Dataset~B.}
-    \label{fig:per_generator_resnet50}
-  \end{minipage}
-  \hfill
-  \begin{minipage}{0.48\columnwidth}
-    \centering
-    \includegraphics[width=\linewidth]{figuri/exp14_resnet18_combined_v2/generator_splits/resnet18_dataset_b_generator_f1.png}
-    \caption{Exp.~14 (ResNet-18): per-generator macro F1-score on Dataset~B.
-             The bar ordering and relative heights are consistent with Exp.~13.}
-    \label{fig:per_generator_resnet18}
-  \end{minipage}
-\end{figure}
-
 Figure~\ref{fig:per_generator_resnet18} shows the same per-generator breakdown for
 Experiment~14 (ResNet-18). The relative ordering of generators is preserved: DALL-E~3
 remains the easiest target and MidJourney~v6 the hardest. ResNet-18 achieves slightly
@@ -553,6 +552,24 @@ instead points to a systematic difficulty with the MS-COCO real image distributi
 which comprises only 17.5\% of the real images in the training corpus. This observation
 is central to the analysis presented in Chapter~5.
 
+\begin{figure}[h!]
+  \centering
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/exp13_resnet50_combined_v2/generator_splits/resnet50_dataset_b_generator_f1.png}
+    \caption{Exp.~13 (ResNet-50): per-generator macro F1-score on Dataset~B.}
+    \label{fig:per_generator_resnet50}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\columnwidth}
+    \centering
+    \includegraphics[width=\linewidth]{figuri/exp14_resnet18_combined_v2/generator_splits/resnet18_dataset_b_generator_f1.png}
+    \caption{Exp.~14 (ResNet-18): per-generator macro F1-score on Dataset~B.
+             The bar ordering and relative heights are consistent with Exp.~13.}
+    \label{fig:per_generator_resnet18}
+  \end{minipage}
+\end{figure}
+
 % ─────────────────────────────────────────────────────────────────────────────
 
 \section{Summary of All Experiments}
@@ -563,6 +580,15 @@ experiments across all three test sets. Entries marked (OOD) indicate that the t
 dataset was not seen during training. The table makes the four-stage progression
 visible as a single sequence, from near-total OOD collapse in Stage~1 to near-perfect
 detection in Stage~4 on Datasets~A and~C.
+
+The Dataset~A OOD column traces the progression from 0.6738 (best Stage~1 cross-dataset
+transfer) through 0.7361 (Stage~3, two real-image sources) to 0.9936 (Stage~4, three
+real-image sources). Each gain coincides with adding a new real-image source to the
+training corpus. Dataset~C performance remains consistently high for any model that
+includes C in training, and collapses for models trained only on datasets without FFHQ
+portraits. Dataset~B presents the most persistent challenge across all stages, with the
+highest per-experiment value being 0.6711 (Experiment~7, balanced test) and 0.5798 on
+the full imbalanced test in Stage~4.
 
 \begin{table}[h!]
   \centering
@@ -593,11 +619,3 @@ detection in Stage~4 on Datasets~A and~C.
   \end{tabular}
 \end{table}
 
-The Dataset~A OOD column traces the progression from 0.6738 (best Stage~1 cross-dataset
-transfer) through 0.7361 (Stage~3, two real-image sources) to 0.9936 (Stage~4, three
-real-image sources). Each gain coincides with adding a new real-image source to the
-training corpus. Dataset~C performance remains consistently high for any model that
-includes C in training, and collapses for models trained only on datasets without FFHQ
-portraits. Dataset~B presents the most persistent challenge across all stages, with the
-highest per-experiment value being 0.6711 (Experiment~7, balanced test) and 0.5798 on
-the full imbalanced test in Stage~4.
