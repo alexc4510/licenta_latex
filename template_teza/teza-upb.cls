@@ -187,7 +187,7 @@
 
 % use Table of Contents rather than default of Contents
 \def\tableofcontents{\@restonecolfalse\if@twocolumn\@restonecoltrue\onecolumn
- \fi\chapter*{Cuprins\@mkboth{TABLE OF CONTENTS}{TABLE OF CONTENTS}}
+ \fi\chapter*{Contents\@mkboth{TABLE OF CONTENTS}{TABLE OF CONTENTS}}
  \@starttoc{toc}\if@restonecol\twocolumn\fi}
 
 
@@ -226,7 +226,7 @@
 % single space bibliography, quotations and verse. 
 
 \def\thebibliography#1{\def\baselinestretch{1}\@normalsize 
-\unnumberedsection{Bibliografie}\list
+\unnumberedsection{Bibliography}\list
  {[\arabic{enumi}]}{\settowidth\labelwidth{[#1]}\leftmargin\labelwidth
  \advance\leftmargin\labelsep
  \usecounter{enumi}}
@@ -535,7 +535,7 @@ Absolvent: {\@author}
         \pagestyle{empty}
         \titlep
         % \inscrierep
-        \declaratiep
+        % \declaratiep
         \tableofcontents
         %\ifcopyright\copyrightp\fi  
         \c@page2 % set page counter so that next is 2
@@ -562,14 +562,14 @@ Absolvent: {\@author}
 
 %need to call addcontentsline before @starttoc. -dks
 \renewcommand\listoffigures{\@restonecolfalse\if@twocolumn\@restonecoltrue\onecolumn
- \fi\chapter*{Lista figurilor\@mkboth
- {LISTA FIGURILOR}{LISTA FIGURILOR}}
- \addcontentsline{toc}{chapter}{Lista figurilor}
+ \fi\chapter*{List of Figures\@mkboth
+ {LIST OF FIGURES}{LIST OF FIGURES}}
+ \addcontentsline{toc}{chapter}{List of Figures}
  \@starttoc{lof}\if@restonecol\twocolumn\fi}
 \renewcommand\listoftables{\@restonecolfalse\if@twocolumn\@restonecoltrue\onecolumn
- \fi\chapter*{Lista tabelelor\@mkboth
- {LISTA TABELELOR}{LISTA TABELELOR}}
- \addcontentsline{toc}{chapter}{Lista tabelelor}
+ \fi\chapter*{List of Tables\@mkboth
+ {LIST OF TABLES}{LIST OF TABLES}}
+ \addcontentsline{toc}{chapter}{List of Tables}
  \@starttoc{lot}\if@restonecol\twocolumn\fi}
 
 
@@ -604,7 +604,7 @@ Absolvent: {\@author}
                 \let\addvspace=\saveaddvspace
         \fi
         \ifabbreviationspage{\def\baselinestretch{1}\@normalsize
-                \unnumberedsection{Lista acronimelor}
+                \unnumberedsection{List of Abbreviations}
                 \@abbreviations}
         \fi
         \newpage
@@ -612,6 +612,7 @@ Absolvent: {\@author}
         \c@page0 % set page counter so that next is 1
         \pagenumbering{arabic}
         \pagestyle{topright}
+        \renewcommand{\@chapapp}{Chapter}%
         }
 \newenvironment{vita}%
 {\unnumberedsection{Vita}
